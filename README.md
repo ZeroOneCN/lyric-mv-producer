@@ -37,34 +37,72 @@ that column.
 | Node.js | 18+ |
 | ffmpeg | Decode, loudness, mux, QA |
 | Python | 3.10+ with `numpy`, `scipy`, `soundfile` |
+| Browser | Chromium-based browser for the Lemo-Opuscar renderer |
 | Renderer | [Lemo-Opuscar](https://github.com/lemomo-ai/lemo-opuscar) with `core/render/video.mjs` |
-| CJK font | `unifont.hex.gz` (GNU Unifont), only for Chinese/Japanese/Korean lyrics |
+| CJK font | [GNU Unifont](https://unifoundry.com/unifont/) `.hex.gz`, only for Chinese/Japanese/Korean lyrics |
 
 ## Install
 
-Copy this folder into your agent's skills directory.
+Setup is one-time. After it, the brief itself can be a single sentence.
 
 ```bash
-# Qoder
-cp -r lyric-mv-producer ~/.qoder-cn/skills/
+# 1. Install the skill where your agent looks for skills.
+git clone https://github.com/ZeroOneCN/lyric-mv-producer.git \
+  ~/.qoder-cn/skills/lyric-mv-producer
+# Claude Code uses ~/.claude/skills/lyric-mv-producer instead.
 
-# Claude Code
-cp -r lyric-mv-producer ~/.claude/skills/
+# 2. The renderer is a separate library.
+git clone https://github.com/lemomo-ai/lemo-opuscar.git ~/lemo-opuscar
+
+# 3. Python dependencies.
+python -m pip install numpy scipy soundfile
 ```
 
-Then invoke `/lyric-mv-producer` with your song and lyrics folder, or simply ask
-for a lyric MV and let the agent pick the skill up from its description.
+Start a new session or run `/skills reload`. `node` and `ffmpeg` must be on
+`PATH`. `build.sh` finds the library at `$LIB`, `../lemo-opuscar`, or
+`~/lemo-opuscar`; if yours lives elsewhere, set `LIB` in the environment before
+building.
 
-The renderer library is separate. Clone it once:
+For Chinese, Japanese, or Korean lyrics, download a GNU Unifont `.hex.gz` from
+<https://unifoundry.com/unifont/> and pass it with `--font` when scaffolding, or
+drop it at `fonts/unifont.hex.gz` inside the project. Latin-only films do not
+need it.
 
-```bash
-git clone https://github.com/lemomo-ai/lemo-opuscar ~/lemo-opuscar
+## Use it
+
+Put the song and its lyrics in one folder. Nothing else is required:
+
+```
+my-song/
+├── song.mp3
+└── song.lrc
 ```
 
-`build.sh` looks for the library at `$LIB`, `../lemo-opuscar`, or
-`~/lemo-opuscar`; set `LIB` explicitly if it lives elsewhere.
+Open your agent in the parent folder and send one line:
 
-## Quick start
+> 用 lyric-mv-producer 把 ./my-song 做成 MV。
+
+> Make a lyric MV with lyric-mv-producer from ./my-song.
+
+If your agent supports slash commands, `/lyric-mv-producer ./my-song` works too.
+
+The agent reads the skill, asks once for anything the folder does not answer
+(title, tone, the one image you want to remember, rights, whether you want to
+review a storyboard), then runs the pipeline. The project and all deliverables
+are written to a new folder inside the one you point it at.
+
+Add specifics to the same sentence when they matter:
+
+> 用 lyric-mv-producer 把 ./my-song 做成像素风 MV，片名《纸月亮》，主色蓝金，
+> 副歌要一次大远景；封面人物放中间，方便裁 3:4。
+
+It is not a one-click app. Setup needs Node, Python, ffmpeg, a Chromium-based
+browser, and the Lemo-Opuscar library, and a full-length film takes tens of
+minutes to render on a typical laptop. Once those are in place, that sentence is
+the whole interface; the commands below are what the agent runs, kept here for
+inspection or a manual rerun.
+
+## Quick start (manual)
 
 ```bash
 SKILL="$HOME/.qoder-cn/skills/lyric-mv-producer"
