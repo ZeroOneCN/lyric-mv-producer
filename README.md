@@ -11,6 +11,31 @@ into a small palette-index framebuffer and scaled 6× with nearest-neighbour, so
 the film stays deterministic: the same project always renders the same frames
 and the same mix.
 
+## 中文说明
+
+Lyric MV Producer 是一个给 AI Agent 用的歌词 MV 制作技能：你提供自己拥有权利的歌曲和歌词（LRC），它从速度与段落分析、歌词对时、分镜和美术设定，一路做到像素画面、字幕、程序化音效、混音母带、1080p24 渲染、QA 和交付。
+
+- **创作风格**：全片由代码绘制的 320×180 索引色像素动画，6 倍整数放大到 1080p。每部片单独制定色调、角色、场景和叙事结构，不是套模板；画面强调三档景别、整像素视差、踩拍剪辑和底部安全区字幕。歌曲原样作为配乐，只叠加环境声与拟音。
+- **成片规格**：1920×1080 / 24 fps / AAC 48 kHz 立体声 / −14 LUFS，附 16:9 海报、4:3 横版封面、3:4 竖版封面，以及与画面对齐的 SRT。
+- **安装**：见 [Install](#install)。Node、ffmpeg、Python、浏览器、Lemo-Opuscar 渲染库需要一次性装好。
+- **使用**：安装后，把歌曲和歌词放进一个文件夹，对 Agent 说：
+  > 用 lyric-mv-producer 做一支 MV。
+
+  它会读取目录里的音频和 LRC，缺什么问一次（片名、风格、权利状态等），然后开始制作。
+- **注意**：不是一键应用，首次全片渲染可能需要几十分钟；仓库不含任何歌曲、歌词或角色素材，使用前请确认你拥有相应权利。
+
+## Visual style
+
+Every film is a code-drawn pixel lyric film, not a slideshow over the song:
+
+- 320×180 indexed-colour framebuffer, 6× nearest-neighbour to 1080p24, integer coordinates only.
+- One palette per film, at most ~40 colours, starting from ENDESGA-32; no large pure-black areas.
+- Three shot scales: wide (figure 16–40 px tall), medium (60–90 px), close (100–150 px, kept for choruses and the ending).
+- Characters are original pixel sprites; fan characters are redrawn rather than ripped. No image generators, stock art, or logos.
+- Lyrics sit bottom-centre, one or two lines, 1 px outline, never over a face.
+- Cuts land on beats or lyric onsets; dissolves are rationed; the HUD stays quiet.
+- Each film gets its own treatment, palette, character, and structure; the engine is a canvas, not a fixed preset.
+
 ## What you get
 
 - `song.mp4` — 1920×1080, 24 fps, H.264, AAC 48 kHz stereo, −14 LUFS
@@ -78,18 +103,22 @@ my-song/
 └── song.lrc
 ```
 
-Open your agent in the parent folder and send one line:
+Install it, then say:
 
-> 用 lyric-mv-producer 把 ./my-song 做成 MV。
+> 用 lyric-mv-producer 做一支 MV。
 
-> Make a lyric MV with lyric-mv-producer from ./my-song.
+> Make a lyric MV with lyric-mv-producer.
 
-If your agent supports slash commands, `/lyric-mv-producer ./my-song` works too.
+If the audio and LRC are not in the current folder, add the path:
 
-The agent reads the skill, asks once for anything the folder does not answer
-(title, tone, the one image you want to remember, rights, whether you want to
+> 用 lyric-mv-producer 做一支 MV，歌曲和歌词在 ./my-song。
+
+Slash commands work too: `/lyric-mv-producer`.
+
+The agent reads the skill, asks once for anything it cannot find (the audio and
+LRC, title, tone, the one image you want to remember, rights, whether you want to
 review a storyboard), then runs the pipeline. The project and all deliverables
-are written to a new folder inside the one you point it at.
+are written to a new folder inside the working folder.
 
 Add specifics to the same sentence when they matter:
 
