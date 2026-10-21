@@ -1,0 +1,30 @@
+"{{TITLE}}" — {{SLUG}}
+Code-drawn lyric music video, {{DUR}} s, 1920x1080, 24 fps, stereo.
+
+SOURCE MUSIC
+  [Track title]
+  [Words / music / performer]
+  [Source and permission status. State plainly if the track was supplied by the client.]
+
+CHARACTER
+  [Character name and design credit, or "original character".]
+  [If the character is a fan rendition: mark it unofficial, name the rights holders,
+   and state that no official art, logo, font, footage, or voice clip was used.]
+
+VISUALS
+  All frames drawn in code on a 320x180 indexed framebuffer, scaled 6x to 1920x1080.
+  Palette: [palette name and source/licence, or "original palette"].
+  Chinese glyphs: GNU Unifont (GPL-2.0-or-later with font-embedding exception),
+  subset to the characters used in engine/font_zh.js.
+  Pixel engine / render framework: Lemo-Opuscar (MIT), https://github.com/lemomo-ai/lemo-opuscar
+
+AUDIO
+  Song supplied by [client / source].
+  Ambience and foley synthesised with Python, numpy and scipy; no sample library.
+  Mastered to -14 LUFS with FFmpeg.
+
+RIGHTS
+  [One paragraph naming every rights holder and the permission status. If this is an
+   unofficial fan work, say so and say it is not for commercial distribution.]
+
+  [Dedication line, optional.]

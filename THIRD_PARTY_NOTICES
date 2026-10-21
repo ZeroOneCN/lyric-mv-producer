@@ -1,0 +1,45 @@
+THIRD-PARTY NOTICES
+
+1. Lemo-Opuscar
+
+The pixel engine in assets/engine/px.js is adapted from the pixel-rpg demo in
+Lemo-Opuscar (https://github.com/lemomo-ai/lemo-opuscar).
+
+MIT License
+
+Copyright (c) 2026 LemoLab
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+2. ENDESGA-32
+
+The default palette begins with ENDESGA-32 by ENDESGA. Credit ENDESGA in the
+film's CREDITS and check the palette's current license before commercial use.
+
+3. GNU Unifont
+
+The optional CJK pipeline reads GNU Unifont at build time and bakes only the
+glyphs used by the film. GNU Unifont is distributed under GPL-2.0-or-later with
+a font-embedding exception. This skill does not bundle the font file or any
+generated glyph table; a production using it must carry the appropriate notice.
+
+4. Production assets
+
+This skill contains no song, lyrics, character art, voice stems, frames, or
+poster from any production. Example lyrics are original filler.
