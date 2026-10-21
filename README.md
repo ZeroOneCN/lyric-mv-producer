@@ -36,16 +36,16 @@
 |---|---|
 | 歌曲 | 你自己的音频文件（MP3/WAV/FLAC） |
 | 歌词 | 带时间轴的 LRC，或手动对时的纯文本 |
-| Node.js | 18+ |
+| Node.js | 20+ |
 | ffmpeg | 解码、响度、混流、QA |
-| Python | 3.10+，含 `numpy`、`scipy`、`soundfile` |
-| 浏览器 | 供 Lemo-Opuscar 渲染器使用的 Chromium 内核浏览器 |
+| Python | 3.11+（或 uv），含 `numpy`、`scipy`、`soundfile` |
+| 浏览器 | Playwright 的 Chromium headless，由 `setup.sh` 自动安装 |
 | 渲染器 | [Lemo-Opuscar](https://github.com/lemomo-ai/lemo-opuscar)，需要 `core/render/video.mjs` |
 | 中文字体 | [GNU Unifont](https://unifoundry.com/unifont/) 的 `.hex.gz`，仅中日韩歌词需要 |
 
 ## 安装
 
-安装是一次性的。装好之后，实际提需求只需要一句话。
+技能本身没有安装钩子。先克隆技能，再跑一次 `setup.sh`，它会连同 Lemo-Opuscar 渲染库一起装好。
 
 ```bash
 # 1. 把技能装到 Agent 读取技能的目录。
@@ -53,14 +53,17 @@ git clone https://github.com/ZeroOneCN/lyric-mv-producer.git \
   ~/.qoder-cn/skills/lyric-mv-producer
 # 用 Claude Code 的话，改成 ~/.claude/skills/lyric-mv-producer。
 
-# 2. 渲染器是独立的库。
-git clone https://github.com/lemomo-ai/lemo-opuscar.git ~/lemo-opuscar
-
-# 3. Python 依赖。
-python -m pip install numpy scipy soundfile
+# 2. 一次性安装：检查工具链，安装 Lemo-Opuscar 及其依赖。
+sh ~/.qoder-cn/skills/lyric-mv-producer/scripts/setup.sh
 ```
 
-新开一个会话，或执行 `/skills reload`。`node` 和 `ffmpeg` 必须在 `PATH` 上。`build.sh` 会依次查找 `$LIB`、`../lemo-opuscar`、`~/lemo-opuscar`；如果库在别处，构建前先设置环境变量 `LIB`。
+`setup.sh` 会检查 **Node 20+、ffmpeg、Python 3.11+（或 uv）**，把 Lemo-Opuscar 克隆到 `~/lemo-opuscar`，再安装它的 npm 包、Chromium headless 和 Python 核心依赖。它不会安装 Node、ffmpeg、Python 或系统浏览器；缺什么会直接报出来。
+
+- `sh scripts/setup.sh --check`：只检查版本和路径，不做修改
+- `sh scripts/setup.sh --lib DIR` 或 `LEMO_OPUSCAR_HOME=DIR`：把渲染库装到别处
+- 已有 Lemo 库时会复用它，并按官方流程安装/更新依赖
+- 装完后新开一个会话，或执行 `/skills reload`
+- `build.sh` 会优先使用 `$LIB/.venv` 里的 Python；也可以用 `PY=` 覆盖
 
 歌词含中文、日文或韩文时，从 <https://unifoundry.com/unifont/> 下载 GNU Unifont 的 `.hex.gz`，在 scaffold 时用 `--font` 传入，或放进项目的 `fonts/unifont.hex.gz`。纯拉丁歌词不需要。
 
@@ -90,7 +93,7 @@ Agent 会读取技能，缺什么只问一次（音频和 LRC、片名、语气�
 
 > 用 lyric-mv-producer 把 ./my-song 做成像素风 MV，片名《纸月亮》，主色蓝金，副歌要一次大远景；封面人物放中间，方便裁 3:4。
 
-这不是一键应用。环境需要 Node、Python、ffmpeg、Chromium 内核浏览器和 Lemo-Opuscar 库，一部长片在普通笔记本上渲染要几十分钟。这些都装好之后，上面那句话就是全部接口；下面的命令是 Agent 实际执行的内容，留在这里方便查看或手动重跑。
+这不是一键应用。`setup.sh` 会装好 Lemo-Opuscar 和它的依赖，但 Node、ffmpeg、Python 和浏览器仍需系统里已有；一部长片在普通笔记本上渲染要几十分钟。这些都齐了之后，上面那句话就是全部接口；下面的命令是 Agent 实际执行的内容，留在这里方便查看或手动重跑。
 
 ## 手动流程
 
@@ -117,7 +120,7 @@ cd my-film
 node "$LIB/core/render/still.mjs" . 1.2 10.5 43.0 87.5 178.0 --prefix look_
 
 # 5. 构建并检查
-LIB="$LIB" PY=python sh build.sh
+LIB="$LIB" sh build.sh
 python tools/check_delivery.py . --slug paper-moon --ffmpeg ffmpeg
 ```
 
@@ -150,6 +153,7 @@ my-film/
 | 文件 | 内容 |
 |---|---|
 | `SKILL.md` | 操作摘要、阶段门、交付契约 |
+| `scripts/setup.sh` | 一次性安装渲染库与依赖，检查工具链 |
 | `references/sop.md` | 完整流程与阶段门 |
 | `references/pixel-engine.md` | 帧缓冲、调色板、绘制、镜头技巧 |
 | `references/audio.md` | 分析、对时、电平规划、母带 |

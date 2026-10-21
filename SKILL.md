@@ -40,14 +40,20 @@ starting a new film. This file is the operating summary.
 |---|---|
 | Song | The user's file (MP3/WAV/FLAC). Keep the original in the project. |
 | Lyrics | LRC with timestamps preferred; plain text can be timed manually. |
-| Node | 18+ for the Lemo-Opuscar renderer |
+| Node | 20+ for the Lemo-Opuscar renderer |
 | ffmpeg | decode, loudness, mux, QA |
-| Python | 3.10+ with `numpy`, `scipy`, `soundfile` |
+| Python | 3.11+ (or uv) with `numpy`, `scipy`, `soundfile` |
 | Renderer | [Lemo-Opuscar] library containing `core/render/video.mjs` |
 | CJK font | `unifont.hex.gz` (GNU Unifont) only when lyrics contain Chinese |
 
 `build.sh` finds the library at `$LIB`, `../lemo-opuscar`, or
 `$HOME/lemo-opuscar`. Set `LIB` explicitly if it lives elsewhere.
+
+If the renderer is missing, ask the user, then run `sh scripts/setup.sh` once.
+It checks Node, ffmpeg and Python, installs Lemo-Opuscar into `~/lemo-opuscar`
+(or `$LEMO_OPUSCAR_HOME`), and installs its npm packages, headless Chromium and
+Python core tier. It does not install Node, ffmpeg, Python, or a system browser.
+`sh scripts/setup.sh --check` only reports.
 
 ## Quick start
 
@@ -101,7 +107,7 @@ node "$LIB/core/render/still.mjs" . 1.2 10.5 43.0 87.5 178.0 --prefix look_
 6. **Build**:
 
 ```bash
-LIB="$LIB" PY="python" sh build.sh
+LIB="$LIB" sh build.sh
 ```
 
    The build writes the film, the 16:9 poster, and both the 4:3 and 3:4 covers.
@@ -257,6 +263,7 @@ and the CREDITS rules.
 
 | Symptom | Fix |
 |---|---|
+| renderer missing or `build.sh: bad LIB` | run `sh scripts/setup.sh`; it installs Lemo-Opuscar and its packages |
 | renderer says ffmpeg not found | pass an absolute `FF=`; `build.sh` converts Windows paths to POSIX before prepending to PATH |
 | stills show fonts as boxes | rerun `tools/genfont.py .`, then `genfont.py . --check` |
 | render fails on `fetch` | serve through the Lemo renderer; ES modules cannot load over `file://` |
@@ -279,6 +286,7 @@ and the CREDITS rules.
 | `assets/engine/` | `px.js`, `font.js` |
 | `assets/templates/` | `main.js`, `index.html`, `project.env`, `build.sh`, `TREATMENT.md`, `CREDITS`, example JSON, `mix.py` |
 | `scripts/scaffold.py` | create a project from the templates |
+| `scripts/setup.sh` | check the toolchain; install Lemo-Opuscar and its packages |
 | `scripts/analyze_song.py` | duration, BPM candidates, energy profile |
 | `scripts/lrc_to_lyrics.py` | LRC → `lyrics.json` |
 | `scripts/genfont.py` | bake/check the CJK subset |

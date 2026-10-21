@@ -48,16 +48,17 @@ that column.
 |---|---|
 | Song | Your own audio file (MP3/WAV/FLAC) |
 | Lyrics | LRC with timestamps, or plain text timed manually |
-| Node.js | 18+ |
+| Node.js | 20+ |
 | ffmpeg | Decode, loudness, mux, QA |
-| Python | 3.10+ with `numpy`, `scipy`, `soundfile` |
-| Browser | Chromium-based browser for the Lemo-Opuscar renderer |
+| Python | 3.11+ (or uv) with `numpy`, `scipy`, `soundfile` |
+| Browser | Playwright's Chromium headless, installed by `setup.sh` |
 | Renderer | [Lemo-Opuscar](https://github.com/lemomo-ai/lemo-opuscar) with `core/render/video.mjs` |
 | CJK font | [GNU Unifont](https://unifoundry.com/unifont/) `.hex.gz`, only for Chinese/Japanese/Korean lyrics |
 
 ## Install
 
-Setup is one-time. After it, the brief itself can be a single sentence.
+The skill has no install hook. Clone it, then run `setup.sh` once; that command
+installs Lemo-Opuscar along with the skill.
 
 ```bash
 # 1. Install the skill where your agent looks for skills.
@@ -65,17 +66,20 @@ git clone https://github.com/ZeroOneCN/lyric-mv-producer.git \
   ~/.qoder-cn/skills/lyric-mv-producer
 # Claude Code uses ~/.claude/skills/lyric-mv-producer instead.
 
-# 2. The renderer is a separate library.
-git clone https://github.com/lemomo-ai/lemo-opuscar.git ~/lemo-opuscar
-
-# 3. Python dependencies.
-python -m pip install numpy scipy soundfile
+# 2. One-time setup: check the toolchain, install Lemo-Opuscar and its packages.
+sh ~/.qoder-cn/skills/lyric-mv-producer/scripts/setup.sh
 ```
 
-Start a new session or run `/skills reload`. `node` and `ffmpeg` must be on
-`PATH`. `build.sh` finds the library at `$LIB`, `../lemo-opuscar`, or
-`~/lemo-opuscar`; if yours lives elsewhere, set `LIB` in the environment before
-building.
+`setup.sh` checks **Node 20+, ffmpeg, Python 3.11+ (or uv)**, clones Lemo-Opuscar
+to `~/lemo-opuscar`, then installs its npm packages, headless Chromium and Python
+core tier. It does not install Node, ffmpeg, Python, or a system browser; it
+reports anything missing.
+
+- `sh scripts/setup.sh --check` — report only, change nothing
+- `sh scripts/setup.sh --lib DIR` or `LEMO_OPUSCAR_HOME=DIR` — install elsewhere
+- An existing Lemo library is reused; its packages are installed or updated
+- Start a new session or run `/skills reload` afterwards
+- `build.sh` prefers `$LIB/.venv`; override with `PY=`
 
 For Chinese, Japanese, or Korean lyrics, download a GNU Unifont `.hex.gz` from
 <https://unifoundry.com/unifont/> and pass it with `--font` when scaffolding, or
@@ -114,11 +118,11 @@ Add specifics to the same sentence when they matter:
 > 用 lyric-mv-producer 把 ./my-song 做成像素风 MV，片名《纸月亮》，主色蓝金，
 > 副歌要一次大远景；封面人物放中间，方便裁 3:4。
 
-It is not a one-click app. Setup needs Node, Python, ffmpeg, a Chromium-based
-browser, and the Lemo-Opuscar library, and a full-length film takes tens of
-minutes to render on a typical laptop. Once those are in place, that sentence is
-the whole interface; the commands below are what the agent runs, kept here for
-inspection or a manual rerun.
+It is not a one-click app. `setup.sh` installs Lemo-Opuscar and its packages,
+but Node, Python, ffmpeg, and a browser must already be on the machine, and a
+full-length film takes tens of minutes to render on a typical laptop. Once those
+are in place, that sentence is the whole interface; the commands below are what
+the agent runs, kept here for inspection or a manual rerun.
 
 ## Quick start (manual)
 
@@ -145,7 +149,7 @@ cd my-film
 node "$LIB/core/render/still.mjs" . 1.2 10.5 43.0 87.5 178.0 --prefix look_
 
 # 5. Build and check
-LIB="$LIB" PY=python sh build.sh
+LIB="$LIB" sh build.sh
 python tools/check_delivery.py . --slug paper-moon --ffmpeg ffmpeg
 ```
 
@@ -181,6 +185,7 @@ The page contract is small: `window.DUR`, `window.SUBS`, `window.EV`,
 | File | Contents |
 |---|---|
 | `SKILL.md` | Operating summary, gates, delivery contract |
+| `scripts/setup.sh` | One-time renderer install and tool-chain check |
 | `references/sop.md` | Full procedure and stage gates |
 | `references/pixel-engine.md` | Framebuffer, palette, drawing, shot craft |
 | `references/audio.md` | Analysis, sync, level plan, master |

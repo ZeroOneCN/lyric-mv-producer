@@ -22,9 +22,11 @@ Ask **once**, in one message. Skip anything the request already answers.
   logos, footage, and whether they have the right to use each.
 - Language for lyrics and on-screen text.
 - Whether they want to review a storyboard first (default: no).
-- Missing tools: Node, Python + numpy/scipy, ffmpeg, a Chromium/Chrome for the
-  renderer, and the Lemo-Opuscar library. Report; do not install system software
-  without asking.
+- Missing tools: Node 20+, Python 3.11+ with numpy/scipy, ffmpeg, a
+  Chromium/Chrome for the renderer, and the Lemo-Opuscar library. Report; do not
+  install system software without asking. If only the library is missing,
+  `sh "$SKILL/scripts/setup.sh"` installs it and its packages after the user
+  agrees.
 
 Summarise the brief in a few lines and start. Record the rights answer in
 `TREATMENT.md` §8 and in `CREDITS`; read `references/rights.md` before drawing

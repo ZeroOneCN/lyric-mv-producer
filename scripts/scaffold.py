@@ -115,7 +115,7 @@ def main() -> None:
     if not args.font:
         print("  for Chinese lyrics, download GNU Unifont to fonts/unifont.hex.gz")
     print("  edit lyrics.json and events.json, then:")
-    print(f"    LIB=/path/to/lemo-opuscar PY=/path/to/python sh build.sh")
+    print("    LIB=/path/to/lemo-opuscar sh build.sh")
 
 
 if __name__ == "__main__":

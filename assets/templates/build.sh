@@ -18,7 +18,7 @@ cd "$PROJ"
 : "${POSTER_T:?project.env needs POSTER_T}"
 : "${COVER_X:=0.5}"
 
-PY=${PY:-python3}
+PY=${PY:-}
 FF=${FF:-ffmpeg}
 WORKERS=${WORKERS:-3}
 
@@ -32,6 +32,14 @@ fi
   exit 1
 }
 [ -f "$LIB/core/render/video.mjs" ] || { echo "build.sh: bad LIB: $LIB" >&2; exit 1; }
+if [ -z "${PY:-}" ]; then
+  for p in "$LIB/.venv/bin/python" "$LIB/.venv/Scripts/python.exe"; do
+    if [ -x "$p" ] && "$p" -c 'import numpy, scipy, soundfile' >/dev/null 2>&1; then
+      PY=$p; break
+    fi
+  done
+fi
+PY=${PY:-python3}
 command -v node >/dev/null 2>&1 || { echo "build.sh: node is not on PATH" >&2; exit 1; }
 command -v "$PY" >/dev/null 2>&1 || [ -x "$PY" ] || { echo "build.sh: python not found: $PY" >&2; exit 1; }
 command -v "$FF" >/dev/null 2>&1 || [ -x "$FF" ] || { echo "build.sh: ffmpeg not found: $FF" >&2; exit 1; }
