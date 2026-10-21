@@ -1,101 +1,72 @@
 # Lyric MV Producer
 
-An agent skill that produces a finished lyric music video from a song you own
-and its lyrics — entirely in code. It covers the whole pipeline: tempo and
-structure analysis, LRC-to-lyric sync, a 320×180 indexed-pixel engine, a written
-treatment and shot list, procedural foley, mix and master to −14 LUFS, a
-1080p24 render, QA, and delivery (MP4, poster, SRT, credits).
+**简体中文** | [English](README.en.md)
 
-No stock footage, no image generators, no official artwork. Every frame is drawn
-into a small palette-index framebuffer and scaled 6× with nearest-neighbour, so
-the film stays deterministic: the same project always renders the same frames
-and the same mix.
+一个给 AI Agent 用的歌词 MV 制作技能：你提供自己拥有权利的歌曲和歌词，它用代码画完整支片子。流水线覆盖速度与段落分析、LRC 歌词对时、320×180 索引色像素引擎、分镜与美术设定、程序化拟音、混音与 −14 LUFS 母带、1080p24 渲染、QA，以及交付（MP4、海报、SRT、字幕表）。
 
-## 中文说明
+不用素材库、不用图像生成器、不用官方美术。每一帧都画进一块小的调色板索引帧缓冲，再以 6 倍最近邻放大，所以成片是确定的：同一个项目永远渲染出同样的帧和同样的混音。
 
-Lyric MV Producer 是一个给 AI Agent 用的歌词 MV 制作技能：你提供自己拥有权利的歌曲和歌词（LRC），它从速度与段落分析、歌词对时、分镜和美术设定，一路做到像素画面、字幕、程序化音效、混音母带、1080p24 渲染、QA 和交付。
+## 创作风格
 
-- **创作风格**：全片由代码绘制的 320×180 索引色像素动画，6 倍整数放大到 1080p。每部片单独制定色调、角色、场景和叙事结构，不是套模板；画面强调三档景别、整像素视差、踩拍剪辑和底部安全区字幕。歌曲原样作为配乐，只叠加环境声与拟音。
-- **成片规格**：1920×1080 / 24 fps / AAC 48 kHz 立体声 / −14 LUFS，附 16:9 海报、4:3 横版封面、3:4 竖版封面，以及与画面对齐的 SRT。
-- **安装**：见 [Install](#install)。Node、ffmpeg、Python、浏览器、Lemo-Opuscar 渲染库需要一次性装好。
-- **使用**：安装后，把歌曲和歌词放进一个文件夹，对 Agent 说：
-  > 用 lyric-mv-producer 做一支 MV。
+每一部都是代码绘制的像素歌词片，而不是配着歌放幻灯片：
 
-  它会读取目录里的音频和 LRC，缺什么问一次（片名、风格、权利状态等），然后开始制作。
-- **注意**：不是一键应用，首次全片渲染可能需要几十分钟；仓库不含任何歌曲、歌词或角色素材，使用前请确认你拥有相应权利。
+- 320×180 索引色帧缓冲，6 倍最近邻放大到 1080p24，所有坐标取整。
+- 每部片一套调色板，最多约 40 色，以 ENDESGA-32 为起点；避免大面积纯黑。
+- 三档景别：远景（人物 16–40 px 高）、中景（60–90 px）、近景（100–150 px，只留给副歌和结尾）。
+- 角色都是原创像素精灵；同人角色重新绘制，不直接取用官方精灵图。不使用图像生成器、素材库或 Logo。
+- 歌词固定在底部居中，一到两行，1 px 描边，绝不压脸。
+- 剪辑落在拍点或歌词起点；叠化克制使用；HUD 保持安静。
+- 每部片单独写 Treatment、定调色板、角色和结构；引擎是画布，不是固定预设。
 
-## Visual style
+## 你会得到什么
 
-Every film is a code-drawn pixel lyric film, not a slideshow over the song:
+- `song.mp4` — 1920×1080，24 fps，H.264，AAC 48 kHz 立体声，−14 LUFS
+- `poster.jpg` — 取自尾奏的 16:9 海报
+- `poster_4x3.jpg` — 1920×1440 横版封面
+- `poster_3x4.jpg` — 1080×1440 竖版封面
+- `song.srt` — 与画面共用同一份 cue 表
+- `TREATMENT.md`、`CREDITS`、`lyrics.json`、`events.json`、`project.env`
+- `build.sh` — 一条命令，从解码做到成片
 
-- 320×180 indexed-colour framebuffer, 6× nearest-neighbour to 1080p24, integer coordinates only.
-- One palette per film, at most ~40 colours, starting from ENDESGA-32; no large pure-black areas.
-- Three shot scales: wide (figure 16–40 px tall), medium (60–90 px), close (100–150 px, kept for choruses and the ending).
-- Characters are original pixel sprites; fan characters are redrawn rather than ripped. No image generators, stock art, or logos.
-- Lyrics sit bottom-centre, one or two lines, 1 px outline, never over a face.
-- Cuts land on beats or lyric onsets; dissolves are rationed; the HUD stays quiet.
-- Each film gets its own treatment, palette, character, and structure; the engine is a canvas, not a fixed preset.
+三张封面都从同一张海报帧派生：先缩回 320×180 原生网格，横向裁切，再用最近邻放大，像素网格和宽高比都保持精确。`project.env` 里的 `COVER_X`（`0 = 左`、`0.5 = 中`、`1 = 右`）控制裁切窗口；3:4 封面只保留画面中间 42% 的宽度，所以海报构图必须照顾这一列。
 
-## What you get
+## 环境要求
 
-- `song.mp4` — 1920×1080, 24 fps, H.264, AAC 48 kHz stereo, −14 LUFS
-- `poster.jpg` — 16:9 still from the coda
-- `poster_4x3.jpg` — 1920×1440 landscape cover
-- `poster_3x4.jpg` — 1080×1440 portrait cover
-- `song.srt` — generated from the same cue table as the picture
-- `TREATMENT.md`, `CREDITS`, `lyrics.json`, `events.json`, `project.env`
-- `build.sh` — one command from decode to finished film
-
-All three covers derive from the same poster frame. The image is reduced to the
-native 320×180 grid, cropped horizontally, and upscaled with nearest-neighbour,
-so the pixel grid and aspect ratio stay exact. `COVER_X` in `project.env`
-(`0 = left`, `0.5 = centre`, `1 = right`) moves the crop window; the 3:4 cover
-keeps only the centre 42% of the frame, so the poster must be composed around
-that column.
-
-## Requirements
-
-| Need | Detail |
+| 需要 | 说明 |
 |---|---|
-| Song | Your own audio file (MP3/WAV/FLAC) |
-| Lyrics | LRC with timestamps, or plain text timed manually |
+| 歌曲 | 你自己的音频文件（MP3/WAV/FLAC） |
+| 歌词 | 带时间轴的 LRC，或手动对时的纯文本 |
 | Node.js | 18+ |
-| ffmpeg | Decode, loudness, mux, QA |
-| Python | 3.10+ with `numpy`, `scipy`, `soundfile` |
-| Browser | Chromium-based browser for the Lemo-Opuscar renderer |
-| Renderer | [Lemo-Opuscar](https://github.com/lemomo-ai/lemo-opuscar) with `core/render/video.mjs` |
-| CJK font | [GNU Unifont](https://unifoundry.com/unifont/) `.hex.gz`, only for Chinese/Japanese/Korean lyrics |
+| ffmpeg | 解码、响度、混流、QA |
+| Python | 3.10+，含 `numpy`、`scipy`、`soundfile` |
+| 浏览器 | 供 Lemo-Opuscar 渲染器使用的 Chromium 内核浏览器 |
+| 渲染器 | [Lemo-Opuscar](https://github.com/lemomo-ai/lemo-opuscar)，需要 `core/render/video.mjs` |
+| 中文字体 | [GNU Unifont](https://unifoundry.com/unifont/) 的 `.hex.gz`，仅中日韩歌词需要 |
 
-## Install
+## 安装
 
-Setup is one-time. After it, the brief itself can be a single sentence.
+安装是一次性的。装好之后，实际提需求只需要一句话。
 
 ```bash
-# 1. Install the skill where your agent looks for skills.
+# 1. 把技能装到 Agent 读取技能的目录。
 git clone https://github.com/ZeroOneCN/lyric-mv-producer.git \
   ~/.qoder-cn/skills/lyric-mv-producer
-# Claude Code uses ~/.claude/skills/lyric-mv-producer instead.
+# 用 Claude Code 的话，改成 ~/.claude/skills/lyric-mv-producer。
 
-# 2. The renderer is a separate library.
+# 2. 渲染器是独立的库。
 git clone https://github.com/lemomo-ai/lemo-opuscar.git ~/lemo-opuscar
 
-# 3. Python dependencies.
+# 3. Python 依赖。
 python -m pip install numpy scipy soundfile
 ```
 
-Start a new session or run `/skills reload`. `node` and `ffmpeg` must be on
-`PATH`. `build.sh` finds the library at `$LIB`, `../lemo-opuscar`, or
-`~/lemo-opuscar`; if yours lives elsewhere, set `LIB` in the environment before
-building.
+新开一个会话，或执行 `/skills reload`。`node` 和 `ffmpeg` 必须在 `PATH` 上。`build.sh` 会依次查找 `$LIB`、`../lemo-opuscar`、`~/lemo-opuscar`；如果库在别处，构建前先设置环境变量 `LIB`。
 
-For Chinese, Japanese, or Korean lyrics, download a GNU Unifont `.hex.gz` from
-<https://unifoundry.com/unifont/> and pass it with `--font` when scaffolding, or
-drop it at `fonts/unifont.hex.gz` inside the project. Latin-only films do not
-need it.
+歌词含中文、日文或韩文时，从 <https://unifoundry.com/unifont/> 下载 GNU Unifont 的 `.hex.gz`，在 scaffold 时用 `--font` 传入，或放进项目的 `fonts/unifont.hex.gz`。纯拉丁歌词不需要。
 
-## Use it
+## 使用
 
-Put the song and its lyrics in one folder. Nothing else is required:
+把歌曲和歌词放进同一个文件夹，除此之外不需要别的：
 
 ```
 my-song/
@@ -103,68 +74,56 @@ my-song/
 └── song.lrc
 ```
 
-Install it, then say:
+安装好之后，直接说：
 
 > 用 lyric-mv-producer 做一支 MV。
 
-> Make a lyric MV with lyric-mv-producer.
-
-If the audio and LRC are not in the current folder, add the path:
+如果音频和 LRC 不在当前目录，再补一句路径：
 
 > 用 lyric-mv-producer 做一支 MV，歌曲和歌词在 ./my-song。
 
-Slash commands work too: `/lyric-mv-producer`.
+也支持斜杠命令：`/lyric-mv-producer`。
 
-The agent reads the skill, asks once for anything it cannot find (the audio and
-LRC, title, tone, the one image you want to remember, rights, whether you want to
-review a storyboard), then runs the pipeline. The project and all deliverables
-are written to a new folder inside the working folder.
+Agent 会读取技能，缺什么只问一次（音频和 LRC、片名、语气、你最想记住的一个画面、权利状态、是否要先看分镜），然后开始跑流水线。项目和全部交付物会写到工作目录下的新文件夹里。
 
-Add specifics to the same sentence when they matter:
+有具体要求，就并进同一句话：
 
-> 用 lyric-mv-producer 把 ./my-song 做成像素风 MV，片名《纸月亮》，主色蓝金，
-> 副歌要一次大远景；封面人物放中间，方便裁 3:4。
+> 用 lyric-mv-producer 把 ./my-song 做成像素风 MV，片名《纸月亮》，主色蓝金，副歌要一次大远景；封面人物放中间，方便裁 3:4。
 
-It is not a one-click app. Setup needs Node, Python, ffmpeg, a Chromium-based
-browser, and the Lemo-Opuscar library, and a full-length film takes tens of
-minutes to render on a typical laptop. Once those are in place, that sentence is
-the whole interface; the commands below are what the agent runs, kept here for
-inspection or a manual rerun.
+这不是一键应用。环境需要 Node、Python、ffmpeg、Chromium 内核浏览器和 Lemo-Opuscar 库，一部长片在普通笔记本上渲染要几十分钟。这些都装好之后，上面那句话就是全部接口；下面的命令是 Agent 实际执行的内容，留在这里方便查看或手动重跑。
 
-## Quick start (manual)
+## 手动流程
 
 ```bash
 SKILL="$HOME/.qoder-cn/skills/lyric-mv-producer"
 LIB="$HOME/lemo-opuscar"
 
-# 1. Scaffold a project
+# 1. 建项目骨架
 python "$SKILL/scripts/scaffold.py" ./my-film \
   --title "PAPER MOON" --slug paper-moon \
   --dur 180.0 --song "/path/to/song.mp3" \
   --font "/path/to/unifont.hex.gz"
 
-# 2. Analyze tempo and sections, then confirm by ear
+# 2. 分析速度与段落，然后靠耳朵确认
 python "$SKILL/scripts/analyze_song.py" "/path/to/song.mp3" \
   --ffmpeg ffmpeg --json my-film/analysis/song.json
 
-# 3. Sync LRC to the cue table
+# 3. LRC 对时，生成 cue 表
 python "$SKILL/scripts/lrc_to_lyrics.py" lyrics.lrc \
   -o my-film/lyrics.json --offset 0 --min-dur 1.2 --max-dur 8
 
-# 4. Write the treatment, then prove the look with stills
+# 4. 写 Treatment，再用静帧验证画面
 cd my-film
 node "$LIB/core/render/still.mjs" . 1.2 10.5 43.0 87.5 178.0 --prefix look_
 
-# 5. Build and check
+# 5. 构建并检查
 LIB="$LIB" PY=python sh build.sh
 python tools/check_delivery.py . --slug paper-moon --ffmpeg ffmpeg
 ```
 
-`check_delivery.py` must print `RESULT PASS`, and you should still watch the
-film end to end. Stills, contact sheet, cut strips, sync and sound checks are
-described in `references/qa.md`.
+`check_delivery.py` 必须输出 `RESULT PASS`，而且仍然要完整看一遍成片。静帧、接触表（contact sheet）、切点切片、同步和声音检查的步骤见 `references/qa.md`。
 
-## Project layout
+## 项目结构
 
 ```
 my-film/
@@ -184,38 +143,31 @@ my-film/
 └── out/
 ```
 
-The page contract is small: `window.DUR`, `window.SUBS`, `window.EV`,
-`window.render(t)`, `window.READY`. `render(t)` must be pure and stateless.
+页面契约很小：`window.DUR`、`window.SUBS`、`window.EV`、`window.render(t)`、`window.READY`。`render(t)` 必须是纯函数、无状态。
 
-## Documentation
+## 文档
 
-| File | Contents |
+| 文件 | 内容 |
 |---|---|
-| `SKILL.md` | Operating summary, gates, delivery contract |
-| `references/sop.md` | Full procedure and stage gates |
-| `references/pixel-engine.md` | Framebuffer, palette, drawing, shot craft |
-| `references/audio.md` | Analysis, sync, level plan, master |
-| `references/qa.md` | QA passes and exact commands |
-| `references/rights.md` | Rights gate and CREDITS rules |
+| `SKILL.md` | 操作摘要、阶段门、交付契约 |
+| `references/sop.md` | 完整流程与阶段门 |
+| `references/pixel-engine.md` | 帧缓冲、调色板、绘制、镜头技巧 |
+| `references/audio.md` | 分析、对时、电平规划、母带 |
+| `references/qa.md` | QA 流程与具体命令 |
+| `references/rights.md` | 权利门与 CREDITS 规则 |
 
-## Rights
+## 权利
 
-This repository ships no music, lyrics, character art, or other production
-assets. Use it only with audio and lyrics you have the right to use. A public
-release of any film made with it requires your own synchronisation, master,
-lyric-reprint, and character licences. The skill's rights gate and a CREDITS
-template are in `references/rights.md`.
+本仓库不包含任何音乐、歌词、角色美术或其他制作素材。请只使用你有权使用的音频和歌词。任何用本技能制作的片子，公开发布都需要你自行取得词曲同步权、录音母带权、歌词复制/展示授权以及角色形象授权。技能的权利门和 CREDITS 模板见 `references/rights.md`。
 
-## Attribution
+## 署名
 
-- Pixel engine adapted from **Lemo-Opuscar** (MIT), copyright LemoLab.
-- Palette begins with **ENDESGA-32** by ENDESGA.
-- Optional CJK glyphs come from **GNU Unifont** (GPL-2.0-or-later with font
-  embedding exception); the font is read at build time, not bundled.
+- 像素引擎改编自 **Lemo-Opuscar**（MIT），版权归 LemoLab。
+- 调色板以 ENDESGA 的 **ENDESGA-32** 为基础。
+- 可选的中日韩字形来自 **GNU Unifont**（GPL-2.0-or-later，含字体嵌入例外）；字体在构建时读取，不随仓库分发。
 
-Full texts are in `THIRD_PARTY_NOTICES`.
+完整授权文本见 `THIRD_PARTY_NOTICES`。
 
-## License
+## 许可
 
-No license has been declared for this skill's own text and scripts. The
-third-party components listed above keep their own licenses.
+本技能自身的文字和脚本尚未声明许可证。上方列出的第三方组件保留各自的许可证。
