@@ -14,9 +14,10 @@
 - 每部片一套调色板，最多约 40 色，以 ENDESGA-32 为起点；避免大面积纯黑。
 - 三档景别：远景（人物 16–40 px 高）、中景（60–90 px）、近景（100–150 px，只留给副歌和结尾）。
 - 角色都是原创像素精灵；同人角色重新绘制，不直接取用官方精灵图。不使用图像生成器、素材库或 Logo。
-- 歌词固定在底部居中，一到两行，1 px 描边，绝不压脸。
+- 你可以给一张角色参考图。脚本把它量化成本片调色板下的 12×16 / 16×24 / 24×32 / 32×48 像素草稿和可直接粘贴的行稿，用来定剪影、配色与头身比；参考图和草稿只留在项目的 `character/`，片中的精灵仍是代码重画的原创像素。
+- 歌词字幕是全片固定的一套样式，不再每部片重新设计：底部字幕栏（320×180 的第 142–176 行）、最宽 286 px、最多两行、中文每行 10 字、1 px 描边，默认压在一条 Bayer 抖动的深色栏上（可切 `bubble` / `plain`）。构图必须把脸和关键道具留在字幕栏以上。
 - 剪辑落在拍点或歌词起点；叠化克制使用；HUD 保持安静。
-- 每部片单独写 Treatment、定调色板、角色和结构；引擎是画布，不是固定预设。
+- 每部片单独写 Treatment、定调色板、角色和结构；引擎是画布，不是固定预设——字幕栏是唯一写死的规则。
 
 ## 你会得到什么
 
@@ -38,7 +39,7 @@
 | 歌词 | 带时间轴的 LRC，或手动对时的纯文本 |
 | Node.js | 20+ |
 | ffmpeg | 解码、响度、混流、QA |
-| Python | 3.11+（或 uv），含 `numpy`、`scipy`、`soundfile` |
+| Python | 3.11+（或 uv），含 `numpy`、`scipy`、`soundfile`；生成角色像素草稿另需 `pip install pillow` |
 | 浏览器 | Playwright 的 Chromium headless，由 `setup.sh` 自动安装 |
 | 渲染器 | [Lemo-Opuscar](https://github.com/lemomo-ai/lemo-opuscar)，需要 `core/render/video.mjs` |
 | 中文字体 | [GNU Unifont](https://unifoundry.com/unifont/) 的 `.hex.gz`，仅中日韩歌词需要 |
@@ -74,7 +75,8 @@ sh ~/.qoder-cn/skills/lyric-mv-producer/scripts/setup.sh
 ```
 my-song/
 ├── song.mp3
-└── song.lrc
+├── song.lrc
+└── hero.png        可选：角色参考图
 ```
 
 安装好之后，直接说：
@@ -87,11 +89,13 @@ my-song/
 
 也支持斜杠命令：`/lyric-mv-producer`。
 
-Agent 会读取技能，缺什么只问一次（音频和 LRC、片名、语气、你最想记住的一个画面、权利状态、是否要先看分镜），然后开始跑流水线。项目和全部交付物会写到工作目录下的新文件夹里。
+Agent 会读取技能，缺什么只问一次（音频和 LRC、片名、语气、你最想记住的一个画面、有没有角色参考图、权利状态、是否要先看分镜），然后开始跑流水线。项目和全部交付物会写到工作目录下的新文件夹里。
 
 有具体要求，就并进同一句话：
 
-> 用 lyric-mv-producer 把 ./my-song 做成像素风 MV，片名《纸月亮》，主色蓝金，副歌要一次大远景；封面人物放中间，方便裁 3:4。
+> 用 lyric-mv-producer 把 ./my-song 做成像素风 MV，片名《纸月亮》，主角照 ./my-song/hero.png 画，主色蓝金，副歌要一次大远景；封面人物放中间，方便裁 3:4。
+
+字幕样式不用提：全片固定一套（底部字幕栏、最多两行、中文每行 10 字、描边加抖动底栏），要换观感只说 `SUB_STYLE=bubble` 或 `plain` 就行。
 
 这不是一键应用。`setup.sh` 会装好 Lemo-Opuscar 和它的依赖，但 Node、ffmpeg、Python 和浏览器仍需系统里已有；一部长片在普通笔记本上渲染要几十分钟。这些都齐了之后，上面那句话就是全部接口；下面的命令是 Agent 实际执行的内容，留在这里方便查看或手动重跑。
 
@@ -101,11 +105,12 @@ Agent 会读取技能，缺什么只问一次（音频和 LRC、片名、语气�
 SKILL="$HOME/.qoder-cn/skills/lyric-mv-producer"
 LIB="$HOME/lemo-opuscar"
 
-# 1. 建项目骨架
+# 1. 建项目骨架（有角色参考图就带 --character）
 python "$SKILL/scripts/scaffold.py" ./my-film \
   --title "PAPER MOON" --slug paper-moon \
   --dur 180.0 --song "/path/to/song.mp3" \
-  --font "/path/to/unifont.hex.gz"
+  --font "/path/to/unifont.hex.gz" \
+  --character "/path/to/hero.png" --sub-style bar
 
 # 2. 分析速度与段落，然后靠耳朵确认
 python "$SKILL/scripts/analyze_song.py" "/path/to/song.mp3" \
@@ -115,14 +120,22 @@ python "$SKILL/scripts/analyze_song.py" "/path/to/song.mp3" \
 python "$SKILL/scripts/lrc_to_lyrics.py" lyrics.lrc \
   -o my-film/lyrics.json --offset 0 --min-dur 1.2 --max-dur 8
 
-# 4. 写 Treatment，再用静帧验证画面
+# 4. 参考图 → 像素小人草稿（sheet.png + rows_*.txt）
 cd my-film
+python tools/char_ref.py character/ref_hero.png --project .
+
+# 5. 字幕栏校验：几何固定，超长的 cue 会直接失败
+node tools/check_subs.js .
+
+# 6. 写 Treatment，再用静帧验证画面
 node "$LIB/core/render/still.mjs" . 1.2 10.5 43.0 87.5 178.0 --prefix look_
 
-# 5. 构建并检查
+# 7. 构建并检查
 LIB="$LIB" sh build.sh
 python tools/check_delivery.py . --slug paper-moon --ffmpeg ffmpeg
 ```
+
+步骤 5 已并入 `build.sh`，手动执行只是为了提前发现问题；校验不过，构建会在渲染前停下。步骤 4 只在拿到参考图时跑一次，产出的行稿要粘进 `engine/main.js` 再由人重画成原创精灵。`character/` 里的参考图和草稿是工作素材，不随交付发出。
 
 `check_delivery.py` 必须输出 `RESULT PASS`，而且仍然要完整看一遍成片。静帧、接触表（contact sheet）、切点切片、同步和声音检查的步骤见 `references/qa.md`。
 
@@ -130,16 +143,17 @@ python tools/check_delivery.py . --slug paper-moon --ffmpeg ffmpeg
 
 ```
 my-film/
-├── project.env          # SLUG TITLE SONG DUR FPS POSTER_T COVER_X
+├── project.env          # SLUG TITLE SONG DUR FPS POSTER_T COVER_X SUB_STYLE CHAR_REF
 ├── lyrics.json          # [{ "text", "t0", "t1" }]
 ├── events.json          # { dur, bpm, beds, ducks, ev }
 ├── TREATMENT.md
 ├── CREDITS
 ├── build.sh
 ├── index.html
-├── engine/              # px.js, font.js, font_zh.js, main.js
-├── tools/               # genfont, mix, master_audio, make_srt,
-│                        # make_covers, check_delivery
+├── engine/              # px.js, font.js, caption.js, font_zh.js, main.js
+├── character/           # 参考图与像素草稿（工作素材，不交付）
+├── tools/               # genfont, mix, master_audio, make_srt, make_covers,
+│                        # char_ref, check_subs, check_delivery
 ├── audio/               # song.wav, mix.wav, master.wav
 ├── analysis/
 ├── stills/

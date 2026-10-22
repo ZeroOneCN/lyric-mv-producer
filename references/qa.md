@@ -18,7 +18,9 @@ Open them at 100%. Fail the look if any of these is true:
 - the character reads as a silhouette blob, or the species/character is not
   recognisable without the treatment text,
 - two adjacent planes share the same value (no separation at 6× upscale),
-- a subtitle overlaps a face, an eye, or the key prop,
+- anything that matters - a face, an eye, the key prop - sits inside the caption
+  lane (rows 142-176) while a cue is on screen,
+- `node tools/check_subs.js "$PROJ"` does not print `RESULT PASS`,
 - CJK glyphs are missing, doubled, or clipped,
 - the palette has more than ~40 colours or large pure-black areas,
 - the HUD is brighter than the subject.
@@ -116,9 +118,11 @@ The script must end with `RESULT PASS (0 fail, 0 warn)`. It checks:
 | black | no segment ≥ 0.5 s; 0.2–0.5 s warns |
 | SRT | cues valid, monotonic, no overlaps, ends before picture |
 | lyrics | every cue has text, t1 > t0 |
+| caption | `engine/caption.js` present; `tools/check_subs.js` prints `RESULT PASS` |
 | CJK | `font_zh.js` present when lyrics contain CJK |
 | events | valid JSON, duration within 1 s of film |
 | credits | names the music and contains a rights/licence section |
+| character | if `character/ref_*` exists, `CREDITS` discloses the reference image |
 
 Extra checks worth running by hand:
 

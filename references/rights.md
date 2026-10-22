@@ -10,6 +10,7 @@ to rebuild a finished film.
 | Song master / recording | Did the user supply it, and may it be used in this film? | Do not use it. Ask for a track they own or a licensed instrumental. |
 | Words and melody | Who wrote them? Is this a cover, a translation, or a lyric display? | Public release needs a lyric reprint / sync licence. |
 | Character | Is it the user's original character, or a franchise character? | Design an original stand-in. Never use official art, sprites, logos, fonts, or voice clips. |
+| Character reference image | Does the user own or have permission for the photo/illustration they handed over as a reference? | Do not ingest it. Describe the character in words and design from the description. If cleared: keep it in `character/`, use `char_ref.py` only to draft, redraw the sprite, disclose the reference in `CREDITS`, and never deliver the folder. |
 | Voice | Is it the user's own voice, a hired voice, or a cloned voice? | Do not clone a real performer without written permission. |
 | Fonts | GNU Unifont, a Google font, or a commercial font? | Record the licence and subset only what is used. |
 | Palette / textures | Original, ENDESGA-32, or a scanned asset? | Credit it and check the licence for commercial use. |

@@ -1,17 +1,18 @@
 // main.js — deterministic page for a code-drawn lyric MV.
 // Renderer contract: window.DUR / window.render(t) / window.READY / window.SUBS / window.EV.
-import { W, FB, C, LUT, makeOut, bayer, hash, clamp, ss } from './px.js';
-import { text, textW, textOutlined, wrap } from './font.js';
+import { W, H, FB, C, LUT, makeOut, bayer, hash, clamp, ss, sprFromRows, LANE_TOP, LANE_BOT } from './px.js';
+import { text, textW, textOutlined } from './font.js';
+import { captionCfg, drawCaption } from './caption.js';
 
 const canvas = document.getElementById('c');
 const fb = new FB();
 const out = makeOut(canvas);
 
 let CFG = {
-  SLUG: 'my-lyric-mv', TITLE: 'MY LYRIC MV', SUBTITLE: 'A CODE-DRAWN FAN FILM',
-  DUR: 24, POSTER_T: 20,
+  SLUG: 'my-lyric-mv', TITLE: 'MY LYRIC MV', SUBTITLE: 'A CODE-DRAWN LYRIC FILM',
+  DUR: 24, POSTER_T: 20, SUB_STYLE: 'bar', SUB_DENS: '0.45', SUB_FADE: '0.18',
 };
-let SUBS = [], EV = [], ZH = null;
+let SUBS = [], EV = [], ZH = null, CAP = null;
 
 function parseEnv(txt) {
   const o = {};
@@ -160,21 +161,46 @@ function lineAt(t) {
 }
 
 function lyric(t) {
-  const cue = lineAt(t);
-  if (!cue) return;
-  const p = ss(cue.t0, cue.t0 + .22, t);
-  if (p < .05) return;
-  const col = p > .6 ? C.bwhite : C.silver;
-  const zh = ZH && hasCJK(cue.text);
-  const lines = zh ? ZH.zhWrap(cue.text, 286, 1).slice(0, 2) : wrap(cue.text, 286).slice(0, 3);
-  const y0 = 158 - (lines.length - 1) * 9 + Math.round((1 - p) * 2);
-  lines.forEach((line, i) => {
-    if (ZH && hasCJK(cue.text)) {
-      ZH.zhText(fb, line, Math.round((W - ZH.zhTextW(line, 1)) / 2), y0 + i * 18, col, C.ink, 1);
-    } else {
-      centeredLatin(line, y0 + i * 10, col, C.ink, 1);
-    }
-  });
+  const r = drawCaption(fb, t, SUBS, CAP);
+  if (r && r.overflow) {
+    throw new Error(`caption overflow at ${r.cue.t0.toFixed(2)}s: ${r.cue.text} `
+      + '- shorten the cue in lyrics.json; the lane geometry is fixed');
+  }
+}
+
+// —— 角色（小人）——
+// 参考图只用于起草：`python tools/char_ref.py <ref> --project .` 会在 character/
+// 生成量化草稿与行稿。最终精灵仍是由下面这些行字符串代码绘制的原创像素。
+export const CHAR = {
+  h: 24,
+  poses: {
+    stand: [
+      '....dddd....',
+      '...dddddd...',
+      '...ssssss...',
+      '...s.ss.....',
+      '....cccc....',
+      '..cccccccc..',
+      '.cccccccccc.',
+      '....c..c....',
+      '....w..w....',
+    ],
+  },
+  map: { d: C.dbrown, s: C.skin, c: C.crimson, w: C.ink },
+};
+const SPR = Object.fromEntries(
+  Object.entries(CHAR.poses).map(([k, rows]) => [k, sprFromRows(rows, CHAR.map)]));
+
+function hasCaption(t) { return lineAt(t) !== null; }
+
+// 字幕栏（LANE_TOP..LANE_BOT）是保留区：有字幕的镜头里，精灵脚底不得低于 LANE_TOP。
+function drawChar(t, x, groundY, { pose = 'stand', face = 1, scale = 1 } = {}) {
+  const spr = SPR[pose];
+  if (!spr) return;
+  let top = groundY - spr.h * scale;
+  if (hasCaption(t) && groundY > LANE_TOP) groundY = LANE_TOP;
+  if (hasCaption(t) && top + spr.h * scale > LANE_TOP) top = LANE_TOP - spr.h * scale;
+  fb.blitScale(spr, Math.round(x - (spr.w * scale) / 2), Math.round(top), scale, face < 0);
 }
 
 function titleScene(t) {
@@ -222,10 +248,14 @@ async function boot() {
     const m = await import('./font_zh.js');
     if (m.ZH_N > 0) ZH = m;
   } catch (e) { /* Latin-only film */ }
+  CAP = captionCfg(CFG, ZH);
   window.DUR = CFG.DUR;
   window.SUBS = SUBS.map(c => ({ t0: c.t0, t1: c.t1, text: c.text }));
   window.EV = EV;
-  window.EXTRA = { slug: CFG.SLUG, title: CFG.TITLE, posterT: CFG.POSTER_T };
+  window.EXTRA = {
+    slug: CFG.SLUG, title: CFG.TITLE, posterT: CFG.POSTER_T,
+    subStyle: CAP.style, lane: [LANE_TOP, LANE_BOT],
+  };
   window.render = t => {
     try { renderAt(clamp(t, 0, CFG.DUR - .001)); }
     catch (e) { console.error(e); throw e; }

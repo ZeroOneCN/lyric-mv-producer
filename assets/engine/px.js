@@ -3,6 +3,13 @@
 export const W = 320, H = 180, SCALE = 6;
 export const T = 255;                      // 透明
 
+// —— 字幕栏（固定几何，全片唯一一套）——
+// 镜头的 bottom safe area = LANE_TOP..LANE_BOT；主体与脸不得放在这里。
+export const LANE_TOP = 142, LANE_BOT = 176;   // 含首尾，共 35 行
+export const CAP_MAXW = 286;                    // 文字可用宽（两侧各 17 px）
+export const CAP_LINES = 2;                     // 最多两行，超出即校验失败
+export const CAP_CJK = 10;                      // 中日韩每行字数上限（宽度远宽于此）
+
 // —— 主调色板：ENDESGA-32（0–31）+ 保护色（32+，褪色表不动它们）——
 const HEX = [
   '#be4a2f', '#d77643', '#ead4aa', '#e4a672', '#b86f50', '#733e39', '#3e2731', '#a22633',

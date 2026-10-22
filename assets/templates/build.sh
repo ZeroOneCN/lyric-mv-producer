@@ -60,33 +60,36 @@ esac
 
 mkdir -p audio out stills analysis
 
-echo "[1/9] decode song"
+echo "[1/10] decode song"
 if [ ! -f audio/song.wav ] || [ "$SONG" -nt audio/song.wav ]; then
   "$FF" -y -loglevel error -i "$SONG" -vn -ac 2 -ar 48000 -c:a pcm_s16le audio/song.wav
 fi
 
-echo "[2/9] bake CJK glyphs"
+echo "[2/10] bake CJK glyphs"
 "$PY" "$PROJ/tools/genfont.py" "$PROJ"
 
-echo "[3/9] mix song, beds and foley"
+echo "[3/10] mix song, beds and foley"
 "$PY" "$PROJ/tools/mix.py" "$PROJ"
 
-echo "[4/9] master to -14 LUFS / -1.2 dBTP"
+echo "[4/10] master to -14 LUFS / -1.2 dBTP"
 "$PY" "$PROJ/tools/master_audio.py" "$PROJ/audio/mix.wav" "$PROJ/audio/master.wav" --ffmpeg "$FF"
 
-echo "[5/9] subtitles"
+echo "[5/10] subtitles"
 "$PY" "$PROJ/tools/make_srt.py" "$PROJ" --out "$PROJ/$SLUG.srt"
 
-echo "[6/9] render $DUR s at $FPS fps"
+echo "[6/10] caption lane check"
+node "$PROJ/tools/check_subs.js" "$PROJ"
+
+echo "[7/10] render $DUR s at $FPS fps"
 node "$LIB/core/render/video.mjs" "$PROJ" --fps "$FPS" --workers "$WORKERS" \
   --size "${WIDTH}x${HEIGHT}" --out "$PROJ/out/video.mp4"
 
-echo "[7/9] mux"
+echo "[8/10] mux"
 "$FF" -y -loglevel error -i "$PROJ/out/video.mp4" -i "$PROJ/audio/master.wav" \
   -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 256k -ar 48000 -ac 2 \
   -movflags +faststart -shortest "$PROJ/$SLUG.mp4"
 
-echo "[8/9] poster"
+echo "[9/10] poster"
 node "$LIB/core/render/still.mjs" "$PROJ" "$POSTER_T" --prefix poster_
 [ -f "$PROJ/stills/poster_$POSTER_T.jpg" ] || {
   echo "build.sh: poster still missing: stills/poster_$POSTER_T.jpg" >&2
@@ -94,7 +97,7 @@ node "$LIB/core/render/still.mjs" "$PROJ" "$POSTER_T" --prefix poster_
 }
 cp "$PROJ/stills/poster_$POSTER_T.jpg" "$PROJ/poster.jpg"
 
-echo "[9/9] 4:3 and 3:4 covers"
+echo "[10/10] 4:3 and 3:4 covers"
 "$PY" "$PROJ/tools/make_covers.py" "$PROJ" --ffmpeg "$FF" --focus "$COVER_X"
 
 echo

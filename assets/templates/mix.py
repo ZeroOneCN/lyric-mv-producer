@@ -231,13 +231,15 @@ for e in evdoc.get("ev", []):
 for d in evdoc.get("ducks", []):
     a, b = float(d["t0"]), float(d["t1"])
     w = np.zeros(N, dtype=np.float32)
-    i0, i1 = int(a * SR), int(b * SR)
+    i0, i1 = max(0, min(N, int(a * SR))), max(0, min(N, int(b * SR)))
     w[i0:i1] = 1.0
     ramp = int(.08 * SR)
     for i in range(ramp):
         u = i / max(1, ramp - 1)
-        w[i0 - ramp + i] = u * u * (3 - 2 * u)
-        w[i1 + i] = 1 - u * u * (3 - 2 * u)
+        if i0 - ramp + i >= 0:
+            w[i0 - ramp + i] = u * u * (3 - 2 * u)
+        if i1 + i < N:
+            w[i1 + i] = 1 - u * u * (3 - 2 * u)
     w = np.clip(w, 0, 1)[:, None]
     wet = np.stack([lp(song[:, 0], float(d.get("lowpass", 1200))),
                     lp(song[:, 1], float(d.get("lowpass", 1200)))], axis=1)

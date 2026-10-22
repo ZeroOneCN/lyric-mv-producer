@@ -21,9 +21,10 @@ Every film is a code-drawn pixel lyric film, not a slideshow over the song:
 - One palette per film, at most ~40 colours, starting from ENDESGA-32; no large pure-black areas.
 - Three shot scales: wide (figure 16–40 px tall), medium (60–90 px), close (100–150 px, kept for choruses and the ending).
 - Characters are original pixel sprites; fan characters are redrawn rather than ripped. No image generators, stock art, or logos.
-- Lyrics sit bottom-centre, one or two lines, 1 px outline, never over a face.
+- You may supply one character reference image. The script quantises it into 12×16 / 16×24 / 24×32 / 32×48 drafts in the film's palette, plus pasteable ASCII rows, to settle silhouette, colours and head-to-body ratio. The reference and the drafts stay in the project's `character/`; the delivered sprite is still redrawn in code.
+- The lyric caption is one fixed house style, not a per-film design decision: bottom caption lane (rows 142–176 of the 320×180 grid), 286 px maximum, two lines, 10 CJK characters per line, 1 px outline, set on a Bayer-dithered ink bar (`bubble` and `plain` are the only switches). Faces and key props must stay above the lane.
 - Cuts land on beats or lyric onsets; dissolves are rationed; the HUD stays quiet.
-- Each film gets its own treatment, palette, character, and structure; the engine is a canvas, not a fixed preset.
+- Each film gets its own treatment, palette, character, and structure; the engine is a canvas, not a fixed preset — the caption lane is the one hard-coded rule.
 
 ## What you get
 
@@ -50,7 +51,7 @@ that column.
 | Lyrics | LRC with timestamps, or plain text timed manually |
 | Node.js | 20+ |
 | ffmpeg | Decode, loudness, mux, QA |
-| Python | 3.11+ (or uv) with `numpy`, `scipy`, `soundfile` |
+| Python | 3.11+ (or uv) with `numpy`, `scipy`, `soundfile`; sprite drafts from a reference image also need `pip install pillow` |
 | Browser | Playwright's Chromium headless, installed by `setup.sh` |
 | Renderer | [Lemo-Opuscar](https://github.com/lemomo-ai/lemo-opuscar) with `core/render/video.mjs` |
 | CJK font | [GNU Unifont](https://unifoundry.com/unifont/) `.hex.gz`, only for Chinese/Japanese/Korean lyrics |
@@ -93,7 +94,8 @@ Put the song and its lyrics in one folder. Nothing else is required:
 ```
 my-song/
 ├── song.mp3
-└── song.lrc
+├── song.lrc
+└── hero.png        optional character reference
 ```
 
 Install it, then say:
@@ -106,17 +108,28 @@ If the audio and LRC are not in the current folder, add the path:
 
 > 用 lyric-mv-producer 做一支 MV，歌曲和歌词在 ./my-song。
 
+> Make a lyric MV with lyric-mv-producer; the song and lyrics are in ./my-song.
+
 Slash commands work too: `/lyric-mv-producer`.
 
 The agent reads the skill, asks once for anything it cannot find (the audio and
-LRC, title, tone, the one image you want to remember, rights, whether you want to
-review a storyboard), then runs the pipeline. The project and all deliverables
-are written to a new folder inside the working folder.
+LRC, title, tone, the one image you want to remember, whether there is a
+character reference, rights, whether you want to review a storyboard), then runs
+the pipeline. The project and all deliverables are written to a new folder
+inside the working folder.
 
 Add specifics to the same sentence when they matter:
 
 > 用 lyric-mv-producer 把 ./my-song 做成像素风 MV，片名《纸月亮》，主色蓝金，
 > 副歌要一次大远景；封面人物放中间，方便裁 3:4。
+
+> Make a pixel MV from ./my-song called "Paper Moon", base the protagonist on
+> ./my-song/hero.png, blue and gold, one extreme wide shot at the chorus; keep
+> the subject centred so the 3:4 cover crops cleanly.
+
+You never have to ask for a caption style: one house style is fixed for every
+film (bottom lane, two lines maximum, 10 CJK characters a line, outline over a
+dithered bar). To change the feel, say `SUB_STYLE=bubble` or `plain`.
 
 It is not a one-click app. `setup.sh` installs Lemo-Opuscar and its packages,
 but Node, Python, ffmpeg, and a browser must already be on the machine, and a
@@ -130,11 +143,12 @@ the agent runs, kept here for inspection or a manual rerun.
 SKILL="$HOME/.qoder-cn/skills/lyric-mv-producer"
 LIB="$HOME/lemo-opuscar"
 
-# 1. Scaffold a project
+# 1. Scaffold a project (pass --character when you have a reference image)
 python "$SKILL/scripts/scaffold.py" ./my-film \
   --title "PAPER MOON" --slug paper-moon \
   --dur 180.0 --song "/path/to/song.mp3" \
-  --font "/path/to/unifont.hex.gz"
+  --font "/path/to/unifont.hex.gz" \
+  --character "/path/to/hero.png" --sub-style bar
 
 # 2. Analyze tempo and sections, then confirm by ear
 python "$SKILL/scripts/analyze_song.py" "/path/to/song.mp3" \
@@ -144,14 +158,25 @@ python "$SKILL/scripts/analyze_song.py" "/path/to/song.mp3" \
 python "$SKILL/scripts/lrc_to_lyrics.py" lyrics.lrc \
   -o my-film/lyrics.json --offset 0 --min-dur 1.2 --max-dur 8
 
-# 4. Write the treatment, then prove the look with stills
+# 4. Reference image -> sprite drafts (sheet.png + rows_*.txt)
 cd my-film
+python tools/char_ref.py character/ref_hero.png --project .
+
+# 5. Caption lane check: the geometry is fixed, long cues just fail
+node tools/check_subs.js .
+
+# 6. Write the treatment, then prove the look with stills
 node "$LIB/core/render/still.mjs" . 1.2 10.5 43.0 87.5 178.0 --prefix look_
 
-# 5. Build and check
+# 7. Build and check
 LIB="$LIB" sh build.sh
 python tools/check_delivery.py . --slug paper-moon --ffmpeg ffmpeg
 ```
+
+Step 5 also runs inside `build.sh`; running it by hand just surfaces problems
+before the render. Step 4 is done once, when the reference arrives — you paste
+one rows file into `engine/main.js` and redraw it into an original sprite.
+`character/` holds private working material and is never part of the delivery.
 
 `check_delivery.py` must print `RESULT PASS`, and you should still watch the
 film end to end. Stills, contact sheet, cut strips, sync and sound checks are
@@ -161,16 +186,17 @@ described in `references/qa.md`.
 
 ```
 my-film/
-├── project.env          # SLUG TITLE SONG DUR FPS POSTER_T COVER_X
+├── project.env          # SLUG TITLE SONG DUR FPS POSTER_T COVER_X SUB_STYLE CHAR_REF
 ├── lyrics.json          # [{ "text", "t0", "t1" }]
 ├── events.json          # { dur, bpm, beds, ducks, ev }
 ├── TREATMENT.md
 ├── CREDITS
 ├── build.sh
 ├── index.html
-├── engine/              # px.js, font.js, font_zh.js, main.js
-├── tools/               # genfont, mix, master_audio, make_srt,
-│                        # make_covers, check_delivery
+├── engine/              # px.js, font.js, caption.js, font_zh.js, main.js
+├── character/           # reference + pixel drafts (working material, not shipped)
+├── tools/               # genfont, mix, master_audio, make_srt, make_covers,
+│                        # char_ref, check_subs, check_delivery
 ├── audio/               # song.wav, mix.wav, master.wav
 ├── analysis/
 ├── stills/

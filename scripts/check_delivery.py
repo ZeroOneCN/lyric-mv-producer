@@ -117,6 +117,7 @@ def main() -> None:
     ap.add_argument("--max-black", type=float, default=0.5)
     ap.add_argument("--skip-loudness", action="store_true")
     ap.add_argument("--skip-black", action="store_true")
+    ap.add_argument("--node", default="node", help="node binary for the caption check")
     args = ap.parse_args()
 
     root = Path(args.project).resolve()
@@ -240,6 +241,24 @@ def main() -> None:
         except (json.JSONDecodeError, AttributeError) as e:
             report("FAIL", f"lyrics.json is invalid: {e}")
 
+    caption = root / "engine" / "caption.js"
+    if not caption.exists():
+        report("FAIL", "engine/caption.js missing: the film must use the fixed caption lane")
+    else:
+        report("PASS", "file engine/caption.js")
+        checker = root / "tools" / "check_subs.js"
+        if not checker.exists():
+            report("WARN", "tools/check_subs.js missing: the caption lane was not re-checked")
+        else:
+            p = run([args.node, str(checker), str(root)])
+            lines = (p.stdout + p.stderr).strip().splitlines()
+            if p.returncode == 0:
+                report("PASS", "caption lane: " + (lines[-1] if lines else "ok"))
+            else:
+                for ln in lines:
+                    if ln.startswith("FAIL"):
+                        report("FAIL", f"caption lane:{ln[4:]}")
+
     events_path = root / "events.json"
     if events_path.exists():
         try:
@@ -260,6 +279,15 @@ def main() -> None:
             report("FAIL", "CREDITS has no rights / licence section")
         else:
             report("PASS", "CREDITS names music and rights")
+
+    refs = sorted((root / "character").glob("ref_*")) if (root / "character").exists() else []
+    if refs:
+        if credits.exists() and not re.search(r"reference|参考", text):
+            report("FAIL", f"CREDITS does not disclose the {len(refs)} character "
+                           "reference image(s) kept in character/")
+        elif credits.exists():
+            report("PASS", f"character reference disclosed in CREDITS ({len(refs)} file(s))")
+        report("PASS", "character/ holds working studies only: exclude it from the delivery")
 
     print(f"\nRESULT {'FAIL' if fails else 'PASS'}  "
           f"({len(fails)} fail, {len(warns)} warn)")

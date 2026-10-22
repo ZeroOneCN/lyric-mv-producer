@@ -20,6 +20,14 @@ Ask **once**, in one message. Skip anything the request already answers.
   want to remember.
 - Material: the audio file, lyrics or LRC, any character or artwork, fonts,
   logos, footage, and whether they have the right to use each.
+- Lead character: does the user have a **reference image** for the 小人? If yes,
+  keep it (`scaffold.py --character path`) and confirm they may use it; it only
+  seeds the sprite draft in `character/` and never appears on screen. If no, the
+  character is an original design and `character/` stays empty.
+- Caption look: do not ask. The lyric caption is the fixed component
+  (`engine/caption.js`: lane 142-176, 286 px, 2 lines, 10 CJK chars per line);
+  `SUB_STYLE` defaults to `bar` and is changed only if the user asks for a
+  different look by name.
 - Language for lyrics and on-screen text.
 - Whether they want to review a storyboard first (default: no).
 - Missing tools: Node 20+, Python 3.11+ with numpy/scipy, ffmpeg, a
@@ -89,23 +97,25 @@ timestamps for a sung line.
 ]
 ```
 
-Rules:
+Rules (these are the fixed caption's rules - `check_subs.js` enforces them):
 
 - `t1 > t0`; no overlap; keep a 20-40 ms gap between lines.
-- 1-2 lines on screen; 9-10 Chinese characters per line is a comfortable width
-  at 320 px. Long lines wrap or get split at a breath.
+- One cue per sung line, max 2 lines on screen, max 10 Chinese characters per
+  line (20 per cue), max 286 px wide. Split a long line at a breath; never widen
+  or move the lane to fit a bad cue.
 - Do not put a cue in an instrumental section. The absence of lyrics is part of
   the edit.
 - Repeated choruses are repeated cues; keep them, do not merge them.
-- The film's subtitle is not a karaoke wipe. A whole-line lift or a 2-frame fade
-  reads better at 24 fps and avoids a second animation system.
+- Reveal is a `SUB_FADE` fade-in of the whole line. No karaoke wipe, no per-word
+  timing, no lift.
 
 ```sh
 "$PY" "$SKILL/scripts/make_srt.py" "$PROJ" --out "$PROJ/paper-moon.srt"
+node "$SKILL/scripts/check_subs.js" "$PROJ"     # must print RESULT PASS
 ```
 
-**Gate:** `lyrics.json` parses, every cue is inside `DUR`, and the SRT has the
-same count as the JSON.
+**Gate:** `lyrics.json` parses, every cue is inside `DUR`, the SRT has the same
+count as the JSON, and `check_subs.js` prints `RESULT PASS`.
 
 ## 3. Treatment before code
 
@@ -131,6 +141,17 @@ the film. The instrumental and ending have concrete images.
 
 ## 4. Prove the look before the film
 
+If the user supplied a character reference, turn it into sprite drafts first:
+
+```sh
+"$PY" "$PROJ/tools/char_ref.py" "$PROJ/character/ref_hero.png" --project "$PROJ"
+```
+
+Open `character/sheet.png`, pick the smallest grid whose silhouette still reads,
+copy its `ROWS`/`MAP` into `engine/main.js`, then redraw it into an original
+sprite: fewer colours, eye line near the top third, one identifying detail that
+survives 16 px. Never blit the reference or a draft into the picture.
+
 Draw with the real engine, not a mock-up:
 
 ```sh
@@ -144,7 +165,8 @@ Check:
 - The character reads at 40 px; eyes and silhouette survive the 6x upscale.
 - The palette has a light, a mid, and a dark that are distinct in a 320 px
   thumbnail. Pure black is a hole, not a shadow.
-- The lyric line is legible over the busiest frame and does not cover a face.
+- The caption sits inside the lane (rows 142-176), stays under 2 lines, and the
+  subject of the shot is not below row 142 while the cue is on screen.
 - The HUD is a point of view, not a border. If it would appear on every frame,
   cut it back.
 - The title card is readable in one second.
@@ -291,9 +313,13 @@ TREATMENT.md        the written film
 CREDITS             every asset, source, licence, rights paragraph
 lyrics.json         the timeline
 events.json         sound / cue map
+project.env         the single source of truth
 build.sh            one-command rebuild
 engine/ tools/      the source
 ```
+
+`character/` is **not** delivered: the reference image and its sprite drafts are
+private working material.
 
 Tell the user where the folder is, that `CREDITS` lists the third-party assets
 and licences, and that they are responsible for the material they supplied.
@@ -304,7 +330,9 @@ and licences, and that they are responsible for the material they supplied.
 |---|---|---|
 | Film feels like a slideshow | cuts not on the felt pulse; no camera motion | cut on beats or lyric starts; add a slow push or pan |
 | Instrumental section is boring | no story device; literal illustration | use the treatment's frame (memory, game, letter) to change the location |
-| Lyrics cover the face | subtitle safe area not reserved | compose with a lower third; move the camera |
+| Lyrics cover the face | subject left inside the reserved lane | keep faces and key props above row 142 while a cue is on screen |
+| Cue rejected by `check_subs.js` | lyric needs 3 lines or >10 CJK chars per line | split the cue at a breath in `lyrics.json`; the lane is fixed |
+| Draft sprite is mud | too many palette entries, no value separation | lower `--colours`, then redraw by hand: outline first, three values |
 | Tofu / missing characters | `font_zh.js` not regenerated | run `genfont.py`; check the missing list |
 | Render crawls | drawing per pixel through Canvas 2D; huge per-frame allocations | draw into the indexed FB; precompute; use 3 workers |
 | Audio pumps | single-pass loudnorm on a dynamic mix | use two-pass `loudnorm` or a limiter |

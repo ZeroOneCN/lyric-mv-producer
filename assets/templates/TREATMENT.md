@@ -24,6 +24,9 @@ Choose one and say why. The choice must survive the 30-second instrumental secti
 - Want: [concrete, visible, not "to be happy"].
 - Obstacle: [the thing the world will not give].
 - Arc: [what changes by the last chorus; it can be small, but it must be a decision].
+- Reference: [none / `character/ref_*.png` supplied by the user, cleared for this use].
+  If a reference exists, run `tools/char_ref.py` and record here which grid became
+  the sprite and what you redrew. The reference and the drafts never appear in the film.
 - Forbidden: no official art, logos, fonts, footage, voice clips, or ripped character sprites. Draw a stand-in if the user has not cleared a character.
 
 ## 3. Visual system
@@ -39,7 +42,10 @@ Choose one and say why. The choice must survive the 30-second instrumental secti
 
 **HUD**: [what the interface says, where it sits, how often it appears]. The HUD is a point of view, not a border.
 
-**Lyrics**: one or two lines, bottom centre, 1 px outline, never over a face. [Reveal rule: whole line, 2-frame lift, no typewriter.]
+**Lyrics — fixed, not designed per film**: `engine/caption.js` draws every cue in the
+reserved lane y 142-176, max 286 px wide, max 2 lines, 10 CJK characters per line,
+1 px ink outline, 0.18 s fade-in. `SUB_STYLE` picks bar (dithered lane) | bubble | plain.
+[Record here only the style you chose and any shot that must keep the lane clear.]
 
 **Transitions**: cuts on beats or lyric starts. [Name the two or three dissolves and why they are earned.]
 
