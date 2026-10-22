@@ -15,7 +15,7 @@ SKILL = Path(__file__).resolve().parent.parent
 ASSETS = SKILL / "assets"
 SCRIPTS = SKILL / "scripts"
 
-ENGINE = ["px.js", "font.js", "caption.js"]
+ENGINE = ["px.js", "font.js", "caption.js", "cover.js"]
 TOOLS = {
     "genfont.py": SCRIPTS / "genfont.py",
     "mix.py": ASSETS / "templates" / "mix.py",
@@ -74,6 +74,11 @@ def main() -> None:
                     help="character reference image to keep in character/ (private)")
     ap.add_argument("--sub-style", default="plate", choices=("plate", "bubble", "plain"),
                     help="fixed lyric caption style (default: plate)")
+    ap.add_argument("--cover-type", default="band", choices=("band", "overlay"),
+                    help="cover layout: band = art stops above the title band, "
+                         "overlay = art bleeds full, title on a dithered plate")
+    ap.add_argument("--cover-artist", default="", help="artist line for the cover band")
+    ap.add_argument("--cover-tagline", default="", help="tagline line for the cover band")
     ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
 
@@ -146,7 +151,11 @@ def main() -> None:
         env_line("WIDTH", "1920"),
         env_line("HEIGHT", "1080"),
         env_line("POSTER_T", f"{poster:.3f}".rstrip("0").rstrip(".")),
-        env_line("COVER_X", "0.5"),
+        env_line("COVER_SHAPES", "4x3,3x4"),
+        env_line("COVER_TYPE", args.cover_type),
+        env_line("COVER_DENS", ""),
+        env_line("COVER_ARTIST", args.cover_artist),
+        env_line("COVER_TAGLINE", args.cover_tagline),
         env_line("SUB_STYLE", args.sub_style),
         env_line("SUB_DENS", "0.45"),
         env_line("SUB_FADE", "0.18"),

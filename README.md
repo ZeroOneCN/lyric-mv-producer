@@ -2,7 +2,7 @@
 
 **简体中文** | [English](README.en.md)
 
-一个给 AI Agent 用的歌词 MV 制作技能：你提供自己拥有权利的歌曲和歌词，它用代码画完整支片子。流水线覆盖速度与段落分析、LRC 歌词对时、320×180 索引色像素引擎、分镜与美术设定、程序化拟音、混音与 −14 LUFS 母带、1080p24 渲染、QA，以及交付（MP4、海报、SRT、字幕表）。
+一个给 AI Agent 用的歌词 MV 制作技能：你提供自己拥有权利的歌曲和歌词，它用代码画完整支片子。流水线覆盖速度与段落分析、LRC 歌词对时、320×180 索引色像素引擎、分镜与美术设定、程序化拟音、混音与 −14 LUFS 母带、1080p24 渲染、QA，以及交付（MP4、海报、单独设计的 4:3/3:4 封面、SRT、字幕表）。
 
 不用素材库、不用图像生成器、不用官方美术。每一帧都画进一块小的调色板索引帧缓冲，再以 6 倍最近邻放大，所以成片是确定的：同一个项目永远渲染出同样的帧和同样的混音。
 
@@ -23,13 +23,13 @@
 
 - `song.mp4` — 1920×1080，24 fps，H.264，AAC 48 kHz 立体声，−14 LUFS
 - `poster.jpg` — 取自尾奏的 16:9 海报
-- `poster_4x3.jpg` — 1920×1440 横版封面
-- `poster_3x4.jpg` — 1080×1440 竖版封面
+- `cover_4x3.jpg` — 1920×1440 横版封面（240×180 网格上单独设计）
+- `cover_3x4.jpg` — 1080×1440 竖版封面（135×180 网格上单独设计）
 - `song.srt` — 由字幕置顶层实际烧录的单行分段生成，和画面逐条一致
 - `TREATMENT.md`、`CREDITS`、`lyrics.json`、`events.json`、`project.env`
 - `build.sh` — 一条命令，从解码做到成片
 
-三张封面都从同一张海报帧派生：先缩回 320×180 原生网格，横向裁切，再用最近邻放大，像素网格和宽高比都保持精确。`project.env` 里的 `COVER_X`（`0 = 左`、`0.5 = 中`、`1 = 右`）控制裁切窗口；3:4 封面只保留画面中间 42% 的宽度，所以海报构图必须照顾这一列。
+只有 `poster.jpg` 取自 `POSTER_T` 那一帧。4:3 和 3:4 封面不是海报的裁切，而是各自在自己像素网格上重新设计的构图（4:3 是 240×180，3:4 是 135×180，格子和画面一样大，所以精灵相对大小不变），用的还是同一条 8× 最近邻放大。版式规则由 `engine/cover.js` 固定：上半部画本片母题（`engine/main.js` 里的 `coverMotif()`，坐标相对图形区，不写死 320×180），下半部是一条抖动托板文字带，**必须带上歌名**（可加署名、副标题），四角有角标；`COVER_TYPE` 在 `band`（图形止于文字带上方）和 `overlay`（图形铺满，文字压在托板上）之间切换。`make_covers.py` 会把每张封面各渲染两遍——成图和 `bare=1`（去掉文字层）——两张一样就说明歌名根本没画上去，构建直接失败而不是交付一张空封面。
 
 ## 环境要求
 
@@ -93,7 +93,7 @@ Agent 会读取技能，缺什么只问一次（音频和 LRC、片名、语气�
 
 有具体要求，就并进同一句话：
 
-> 用 lyric-mv-producer 把 ./my-song 做成像素风 MV，片名《纸月亮》，主角照 ./my-song/hero.png 画，主色蓝金，副歌要一次大远景；封面人物放中间，方便裁 3:4。
+> 用 lyric-mv-producer 把 ./my-song 做成像素风 MV，片名《纸月亮》，主角照 ./my-song/hero.png 画，主色蓝金，副歌要一次大远景；4:3 和 3:4 封面按本片风格单独设计，歌名要放进文字带。
 
 字幕样式不用提：全片固定一套（内容画面上的置顶层、一条一行、中文单行最多 32 字、抖动小托板），要换观感只说 `SUB_STYLE=bubble` 或 `plain` 就行。
 
@@ -143,14 +143,14 @@ python tools/check_delivery.py . --slug paper-moon --ffmpeg ffmpeg
 
 ```
 my-film/
-├── project.env          # SLUG TITLE SONG DUR FPS POSTER_T COVER_X SUB_STYLE CHAR_REF
+├── project.env          # SLUG TITLE SONG DUR FPS POSTER_T COVER_SHAPES COVER_TYPE COVER_ARTIST SUB_STYLE CHAR_REF
 ├── lyrics.json          # [{ "text", "t0", "t1" }]
 ├── events.json          # { dur, bpm, beds, ducks, ev }
 ├── TREATMENT.md
 ├── CREDITS
 ├── build.sh
 ├── index.html
-├── engine/              # px.js, font.js, caption.js, font_zh.js, main.js
+├── engine/              # px.js, font.js, caption.js, cover.js, font_zh.js, main.js
 ├── character/           # 参考图与像素草稿（工作素材，不交付）
 ├── tools/               # genfont, mix, master_audio, caption_segments, make_srt,
 │                        # make_covers, char_ref, check_subs, check_delivery

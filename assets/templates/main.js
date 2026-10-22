@@ -3,15 +3,23 @@
 import { W, H, FB, C, LUT, makeOut, bayer, hash, clamp, ss, sprFromRows, OW, OH, T } from './px.js';
 import { text, textW, textOutlined } from './font.js';
 import { captionCfg, drawCaption, unsegmentable, OVERFLOW } from './caption.js';
+import { drawCover, shapeOf } from './cover.js';
 
 const canvas = document.getElementById('c');
 const fb = new FB();                 // 画面 320×180
 const ov = new FB(OW, OH);           // 字幕置顶层 640×360，最后压在画面上
-const out = makeOut(canvas);
+
+// 封面模式：同一个页面用 ?cover=4x3|3x4|16x9 换成封面的格子上作画。
+// 渲染命令见 tools/make_covers.py；封面上必须写歌名。
+const Q = new URLSearchParams(location.search);
+const COVER = shapeOf(Q.get('cover'));
+const cfb = COVER ? new FB(COVER.gw, COVER.gh) : null;
+const out = COVER ? makeOut(canvas, COVER.gw, COVER.gh, COVER.sc, false) : makeOut(canvas);
 
 let CFG = {
   SLUG: 'my-lyric-mv', TITLE: 'MY LYRIC MV', SUBTITLE: 'A CODE-DRAWN LYRIC FILM',
   DUR: 24, POSTER_T: 20, SUB_STYLE: 'plate', SUB_DENS: '0.45', SUB_FADE: '0.18',
+  COVER_TYPE: 'band', COVER_DENS: '', COVER_ARTIST: '', COVER_TAGLINE: '',
 };
 let SUBS = [], EV = [], ZH = null, CAP = null;
 
@@ -231,6 +239,58 @@ function renderAt(t) {
   out.show();
 }
 
+// —— 封面构图 ——
+// 每个画幅单独排：坐标用 art 的宽高（封面的格子），不要写死 320×180。
+// 把本片的母题重画一遍，主体放在上半部，下半部留给固定的文字带（歌名必画）。
+function coverMotif(f, art) {
+  const w = art.w, h = art.h;
+  f.gradV(0, 0, w, h, [C.ink, C.night, C.navy]);
+  for (let i = 0; i < 70; i++) {
+    const x = Math.floor(hash(i, 201) * w), y = Math.floor(hash(i, 202) * h * .6);
+    if (hash(i, 203) > .55) f.px(x, y, hash(i, 204) > .7 ? C.bwhite : C.steel);
+  }
+  const mr = Math.max(6, Math.round(w * .1));
+  const mx = Math.round(w * .76), my = Math.round(h * .28);
+  f.disc(mx, my, mr, C.navy);
+  f.disc(mx, my, Math.round(mr * .8), C.pale);
+  f.disc(mx + Math.round(mr * .3), my - Math.round(mr * .25), Math.round(mr * .72), C.night);
+
+  const base = Math.round(h * .8);
+  let x = 0, i = 0;
+  while (x < w) {
+    const bw = 8 + Math.floor(hash(i, 301) * 14);
+    const bh = 10 + Math.floor(hash(i, 302) * Math.max(8, Math.round(h * .2)));
+    f.rect(x, base - bh, bw, bh + 2, C.dslate);
+    f.hline(x, x + bw - 1, base - bh, C.slate);
+    for (let wy = base - bh + 3; wy < base - 3; wy += 5)
+      for (let wx = x + 2; wx < x + bw - 2; wx += 4)
+        if (hash(wx, wy, 303) > .66) f.rect(wx, wy, 1, 2, hash(wx, wy, 304) > .5 ? C.amber : C.warm);
+    x += bw + 1; i++;
+  }
+  f.rect(0, base, w, h - base, C.night);
+  f.hline(0, w, base, C.deepD);
+
+  const spr = SPR.stand, s = Math.max(1, Math.round(h / 55));
+  f.blitScale(spr, Math.round(w * (w < 180 ? .44 : .3)) - Math.round(spr.w * s / 2), base - spr.h * s, s, false);
+  // 倒影：湿地上拉几道窗光
+  for (let k = 0; k < 10; k++) {
+    const rx = Math.floor(hash(k, 401) * w);
+    f.vline(rx, base + 2, base + 2 + Math.floor(hash(k, 402) * Math.max(3, h - base - 3)), hash(k, 403) > .5 ? C.warm : C.slate);
+  }
+}
+
+function renderCover() {
+  const proof = drawCover(cfb, COVER, {
+    title: CFG.TITLE, artist: CFG.COVER_ARTIST, tagline: CFG.COVER_TAGLINE,
+    zh: ZH, typeMode: CFG.COVER_TYPE, dens: CFG.COVER_DENS === '' ? null : parseFloat(CFG.COVER_DENS),
+    bare: Q.get('bare') === '1',
+    motif: coverMotif,
+  });
+  out.present(cfb, LUT.full);
+  out.show();
+  window.COVER = proof;
+}
+
 async function boot() {
   try {
     const env = parseEnv(await (await fetch(new URL('../project.env', import.meta.url))).text());
@@ -239,17 +299,31 @@ async function boot() {
     CFG.POSTER_T = parseFloat(CFG.POSTER_T) || CFG.DUR * .8;
   } catch (e) { console.warn('project.env not loaded, using defaults', e); }
   try {
+    const m = await import('./font_zh.js');
+    if (m.ZH_N > 0) ZH = m;
+  } catch (e) { /* Latin-only film */ }
+
+  // 封面模式：不需要歌词和音效事件，只要格子里能把歌名画对
+  if (COVER) {
+    window.DUR = 1;
+    window.SUBS = [];
+    window.EV = [];
+    window.EXTRA = { slug: CFG.SLUG, title: CFG.TITLE, cover: { shape: Q.get('cover'), grid: [COVER.gw, COVER.gh], out: COVER.out } };
+    window.render = () => { try { renderCover(); } catch (e) { console.error(e); throw e; } };
+    window.READY = true;
+    renderCover();
+    return;
+  }
+
+  try {
     SUBS = await (await fetch(new URL('../lyrics.json', import.meta.url))).json();
   } catch (e) { console.warn('lyrics.json not loaded', e); }
   try {
     const doc = await (await fetch(new URL('../events.json', import.meta.url))).json();
     EV = doc.ev || [];
   } catch (e) { console.warn('events.json not loaded', e); }
-  try {
-    const m = await import('./font_zh.js');
-    if (m.ZH_N > 0) ZH = m;
-  } catch (e) { /* Latin-only film */ }
   CAP = captionCfg(CFG, ZH);
+
   const bad = unsegmentable(SUBS, CAP);
   if (bad.length) {
     throw new Error(`caption cannot fit one line at ${bad[0].t0}s: ${bad[0].text} `

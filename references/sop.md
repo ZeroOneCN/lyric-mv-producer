@@ -179,21 +179,23 @@ idle, walk, the one prop, and two expressions. A character that only works in
 one pose is a drawing, not a cast member.
 
 Prove the planned poster in all three shapes before animating. Render the
-`POSTER_T` still, then derive the covers from it:
+`POSTER_T` still, then render the two designed covers:
 
 ```sh
 . "$PROJ/project.env"
 node "$LIB/core/render/still.mjs" "$PROJ" "$POSTER_T" --prefix poster_
-"$PY" "$PROJ/tools/make_covers.py" "$PROJ" --ffmpeg "$FF" \
-  --focus "${COVER_X:-0.5}" --source "stills/poster_$POSTER_T.jpg"
+"$PY" "$PROJ/tools/make_covers.py" "$PROJ" --lib "$LIB" --ffmpeg "$FF" \
+  --shapes "${COVER_SHAPES:-4x3,3x4}"
 ```
 
-The 3:4 cover is a centre crop of only 42% of the width. If that crop loses
-the face, the key prop, or an on-screen title, reframe the coda shot now or
-move `COVER_X`; do not plan a poster that only works in 16:9.
+The 4:3 and 3:4 covers are their own compositions on their own grids, drawn by
+`engine/cover.js` with the film's `coverMotif()`; they are never crops of the
+poster. Each carries the song title in a fixed type band. Plan the motif so it
+reads at 240×180 and 135×180, not just 320×180 — a cover that only works in 16:9
+is a failed design.
 
-**Gate:** three approved stills (wide, medium, close), a model sheet, and a
-poster still whose subject survives 4:3 and 3:4 crops. If the user asked for a
+**Gate:** three approved stills (wide, medium, close), a model sheet, a poster
+still, and both designed covers carrying the title. If the user asked for a
 storyboard, stop here and wait for approval.
 
 ## 5. Build the engine and scenes
@@ -267,16 +269,18 @@ LIB="$LIB" PY="$PY" FF="$FF" WORKERS=3 sh "$PROJ/build.sh"
 
 `build.sh` decodes the song, bakes the CJK subset, mixes, masters, writes the
 SRT, renders at `DUR * FPS` frames, muxes H.264/AAC with faststart, writes
-`poster.jpg` from `POSTER_T`, and derives `poster_4x3.jpg` (1920×1440) and
-`poster_3x4.jpg` (1080×1440) from it. Choose `POSTER_T` in a coda frame with no
-lyric. If the coda has a title card, either move the card or choose a clean
-frame. Covers are cropped around `COVER_X` (0 = left, 0.5 = centre, 1 = right).
+`poster.jpg` from `POSTER_T`, and renders the designed `cover_4x3.jpg`
+(1920×1440) and `cover_3x4.jpg` (1080×1440) on their own grids. Choose
+`POSTER_T` in a coda frame with no lyric. If the coda has a title card, either
+move the card or choose a clean frame. The covers are laid out by
+`engine/cover.js`; `COVER_TYPE` picks `band` or `overlay` and `COVER_ARTIST` /
+`COVER_TAGLINE` fill the type band.
 
 For a faster iteration, render one still or a short range with the Lemo tools;
 do not re-render the whole film to check a colour.
 
-**Gate:** the MP4 opens, duration matches `project.env`, and all three posters
-are clean, with the subject intact in the 3:4 crop.
+**Gate:** the MP4 opens, duration matches `project.env`, the poster is clean,
+and both designed covers carry the song title in their type band.
 
 ## 8. QA and delivery
 
@@ -298,9 +302,9 @@ does not judge the film. Then:
 3. One full-speed viewing with sound, start to finish, no scrubbing.
 4. Subtitle pass: read every line at speed; check it does not cover a face or a
    prop; check names and punctuation.
-5. Cover pass: open `poster.jpg`, `poster_4x3.jpg`, and `poster_3x4.jpg` at
-   100%. Check the face, the key prop, and any title survive every crop; check
-   there is no subtitle baked into any of them.
+5. Cover pass: open `poster.jpg`, `cover_4x3.jpg`, and `cover_3x4.jpg` at
+   100%. Check the poster is a clean coda frame with no subtitle, and that each
+   designed cover carries the song title in its band with a balanced motif.
 6. Rights pass: every asset in `CREDITS`; the rights paragraph matches the
    actual permission status.
 
@@ -309,8 +313,8 @@ Deliver in the project folder:
 ```
 <slug>.mp4          H.264 1920x1080 24 fps, AAC 48 kHz stereo, about -14 LUFS
 poster.jpg          1920x1080, coda frame, no subtitle
-poster_4x3.jpg      1920x1440, 4:3 cover, same frame
-poster_3x4.jpg      1080x1440, 3:4 cover, same frame
+cover_4x3.jpg       1920x1440, 4:3 cover, own 240x180 composition, title set in
+cover_3x4.jpg       1080x1440, 3:4 cover, own 135x180 composition, title set in
 <slug>.srt          same cues as lyrics.json
 TREATMENT.md        the written film
 CREDITS             every asset, source, licence, rights paragraph

@@ -86,13 +86,13 @@ boundaries from your analysis.
 5. **[drop] Largest image** — [scale, light, what stays small].
 6. **[collapse] Return** — [the glitch / colour collapse / match cut that brings us back].
 7. **[final chorus] Decision** — [what the character does instead of waiting].
-8. **[coda] Last frame** — [the image the poster will use; make it hold, and keep the subject inside the centre 42% of the width so the 3:4 cover survives].
+8. **[coda] Last frame** — [the image the 16:9 poster will use; make it hold. The 4:3 and 3:4 covers are separate designs drawn on their own grids with the song title in a type band — plan a `coverMotif()` that reads at 240x180 and 135x180, not just 320x180].
 
 ## 7. Delivery
 
 - `{{SLUG}}.mp4`: 1920x1080, 24 fps, H.264, AAC 48 kHz stereo, -14 LUFS
 - `poster.jpg`: the coda frame, clean of subtitles
-- `poster_4x3.jpg` / `poster_3x4.jpg`: 4:3 and 3:4 covers from the same frame
+- `cover_4x3.jpg` / `cover_3x4.jpg`: 4:3 and 3:4 covers, each its own composition on its own grid with the title set in
 - `{{SLUG}}.srt`: same cue list as `lyrics.json`
 - `TREATMENT.md`, `CREDITS`, `lyrics.json`, `events.json`
 - `build.sh`: one command, from decoded song to muxed film

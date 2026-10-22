@@ -6,7 +6,7 @@ An agent skill that produces a finished lyric music video from a song you own
 and its lyrics — entirely in code. It covers the whole pipeline: tempo and
 structure analysis, LRC-to-lyric sync, a 320×180 indexed-pixel engine, a written
 treatment and shot list, procedural foley, mix and master to −14 LUFS, a
-1080p24 render, QA, and delivery (MP4, poster, SRT, credits).
+1080p24 render, QA, and delivery (MP4, poster, designed 4:3/3:4 covers, SRT, credits).
 
 No stock footage, no image generators, no official artwork. Every frame is drawn
 into a small palette-index framebuffer and scaled 6× with nearest-neighbour, so
@@ -30,18 +30,24 @@ Every film is a code-drawn pixel lyric film, not a slideshow over the song:
 
 - `song.mp4` — 1920×1080, 24 fps, H.264, AAC 48 kHz stereo, −14 LUFS
 - `poster.jpg` — 16:9 still from the coda
-- `poster_4x3.jpg` — 1920×1440 landscape cover
-- `poster_3x4.jpg` — 1080×1440 portrait cover
+- `cover_4x3.jpg` — 1920×1440 landscape cover, designed on its own 240×180 grid
+- `cover_3x4.jpg` — 1080×1440 portrait cover, designed on its own 135×180 grid
 - `song.srt` — generated from the same caption segments the film burns in
 - `TREATMENT.md`, `CREDITS`, `lyrics.json`, `events.json`, `project.env`
 - `build.sh` — one command from decode to finished film
 
-All three covers derive from the same poster frame. The image is reduced to the
-native 320×180 grid, cropped horizontally, and upscaled with nearest-neighbour,
-so the pixel grid and aspect ratio stay exact. `COVER_X` in `project.env`
-(`0 = left`, `0.5 = centre`, `1 = right`) moves the crop window; the 3:4 cover
-keeps only the centre 42% of the frame, so the poster must be composed around
-that column.
+Only `poster.jpg` comes from the `POSTER_T` frame. The 4:3 and 3:4 covers are
+not crops of it: each is its own composition on its own pixel grid (4:3 is
+240×180, 3:4 is 135×180, the same cell size as the film so sprites keep their
+relative scale), upscaled 8× with nearest-neighbour. `engine/cover.js` fixes the
+layout law: the film's motif (`coverMotif()` in `engine/main.js`, positioned
+against the art box, never hardcoded to 320×180) on top, a dithered type band
+across the bottom that always carries the song title (plus optional artist and
+tagline), and corner ticks. `COVER_TYPE` switches between `band` (art stops
+above the title) and `overlay` (art bleeds full, the title sits on a plate).
+`make_covers.py` renders each cover twice — finished and `bare=1` (no type
+layer) — and fails the build if the two are identical, which proves the title
+was really drawn rather than shipping a blank cover.
 
 ## Requirements
 
@@ -121,11 +127,11 @@ inside the working folder.
 Add specifics to the same sentence when they matter:
 
 > 用 lyric-mv-producer 把 ./my-song 做成像素风 MV，片名《纸月亮》，主色蓝金，
-> 副歌要一次大远景；封面人物放中间，方便裁 3:4。
+> 副歌要一次大远景；4:3 和 3:4 封面按本片风格单独设计，歌名放进文字带。
 
 > Make a pixel MV from ./my-song called "Paper Moon", base the protagonist on
-> ./my-song/hero.png, blue and gold, one extreme wide shot at the chorus; keep
-> the subject centred so the 3:4 cover crops cleanly.
+> ./my-song/hero.png, blue and gold, one extreme wide shot at the chorus; design
+> the 4:3 and 3:4 covers for this film and set the song title into their band.
 
 You never have to ask for a caption style: one house style is fixed for every
 film — a single line drawn on the overlay layer above the picture, up to 32 CJK
@@ -188,14 +194,14 @@ described in `references/qa.md`.
 
 ```
 my-film/
-├── project.env          # SLUG TITLE SONG DUR FPS POSTER_T COVER_X SUB_STYLE CHAR_REF
+├── project.env          # SLUG TITLE SONG DUR FPS POSTER_T COVER_SHAPES COVER_TYPE COVER_ARTIST SUB_STYLE CHAR_REF
 ├── lyrics.json          # [{ "text", "t0", "t1" }]
 ├── events.json          # { dur, bpm, beds, ducks, ev }
 ├── TREATMENT.md
 ├── CREDITS
 ├── build.sh
 ├── index.html
-├── engine/              # px.js, font.js, caption.js, font_zh.js, main.js
+├── engine/              # px.js, font.js, caption.js, cover.js, font_zh.js, main.js
 ├── character/           # reference + pixel drafts (working material, not shipped)
 ├── tools/               # genfont, mix, master_audio, caption_segments, make_srt,
 │                        # make_covers, char_ref, check_subs, check_delivery

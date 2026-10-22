@@ -14,6 +14,16 @@ export const CAP_CJK = 32;                        // 单行汉字上限
 export const CAP_BASE = 336;                      // 单行字幕的文字顶边（层像素，画面第 168 行）
 export const CAP_MINSEG = 0.9;                    // 切段后每段最短可读时长（秒）
 
+// —— 封面画幅（与画面同格：1 格 = 1 画面像素，方形像素不拉伸）——
+// 封面不是海报的裁切，而是按画幅单独设计的构图，必须带歌名。
+// 高度都取 180 格，所以同一套精灵在三张封面里的相对大小一致。
+export const COVER_SHAPES = {
+  '4x3': { gw: 240, gh: 180, sc: 8, out: [1920, 1440] },
+  '3x4': { gw: 135, gh: 180, sc: 8, out: [1080, 1440] },
+  '16x9': { gw: W, gh: H, sc: SCALE, out: [1920, 1080] },
+};
+export const coverShape = name => COVER_SHAPES[String(name).toLowerCase()];
+
 // —— 主调色板：ENDESGA-32（0–31）+ 保护色（32+，褪色表不动它们）——
 const HEX = [
   '#be4a2f', '#d77643', '#ead4aa', '#e4a672', '#b86f50', '#733e39', '#3e2731', '#a22633',
@@ -155,41 +165,49 @@ export function sprFromRows(rows, map) {       // 字符串精灵 → {w,h,d}
   return { w, h, d };
 }
 
-// —— 输出：索引 → RGB（可选两张表 + 逐像素选择：回涨 / 塌缩的抖动过渡）→ ×6 最近邻 ——
+// —— 输出：索引 → RGB（可选两张表 + 逐像素选择：回涨 / 塌缩的抖动过渡）→ 整数倍最近邻放大 ——
 // 字幕置顶层是第二张 2 倍低分辨画布：先画完画面与后处理，再整层压在画面上。
-export function makeOut(canvas) {
-  const lo = document.createElement('canvas'); lo.width = W; lo.height = H;
-  const g = lo.getContext('2d'); const img = g.createImageData(W, H); const u32 = new Uint32Array(img.data.buffer);
-  const loOv = document.createElement('canvas'); loOv.width = OW; loOv.height = OH;
-  const gv = loOv.getContext('2d'); const imgOv = gv.createImageData(OW, OH); const u32Ov = new Uint32Array(imgOv.data.buffer);
+// 封面模式不需要置顶层：withOv=false，整幅构图直接画在封面的格子上。
+export function makeOut(canvas, gw = W, gh = H, sc = SCALE, withOv = true) {
+  const lo = document.createElement('canvas'); lo.width = gw; lo.height = gh;
+  const g = lo.getContext('2d'); const img = g.createImageData(gw, gh); const u32 = new Uint32Array(img.data.buffer);
+  let loOv = null, gv = null, imgOv = null, u32Ov = null;
+  if (withOv) {
+    loOv = document.createElement('canvas'); loOv.width = OW; loOv.height = OH;
+    gv = loOv.getContext('2d'); imgOv = gv.createImageData(OW, OH); u32Ov = new Uint32Array(imgOv.data.buffer);
+  }
+  canvas.width = gw * sc; canvas.height = gh * sc;
   const o = canvas.getContext('2d'); o.imageSmoothingEnabled = false;
+  const ow = gw * sc, oh = gh * sc;
   return {
-    lo, u32, loOv, u32Ov,
+    lo, u32, gw, gh, sc, loOv, u32Ov,
     present(fb, lut, lutB = null, pick = null) {
       const d = fb.d;
+      if (d.length !== gw * gh) throw new Error(`present: framebuffer is ${fb.w}x${fb.h}, output is ${gw}x${gh}`);
       if (!lutB) for (let i = 0; i < d.length; i++) u32[i] = lut[d[i]];
-      else for (let y = 0, i = 0; y < H; y++) for (let x = 0; x < W; x++, i++) u32[i] = (pick(x, y) ? lutB : lut)[d[i]];
+      else for (let y = 0, i = 0; y < gh; y++) for (let x = 0; x < gw; x++, i++) u32[i] = (pick(x, y) ? lutB : lut)[d[i]];
       g.putImageData(img, 0, 0);
     },
     // 透明像素（索引 T）写 0，其余走画面同一张 LUT：淡出与塌缩会一并作用到字幕上。
     presentOverlay(ov, lut) {
+      if (!u32Ov) throw new Error('presentOverlay: this output has no overlay layer');
       const d = ov.d;
       for (let i = 0; i < d.length; i++) u32Ov[i] = d[i] === T ? 0 : lut[d[i]];
       gv.putImageData(imgOv, 0, 0);
     },
     post(fn) { fn(u32); g.putImageData(img, 0, 0); },   // RGB 级后处理（马赛克、旋涡）
     show() {
-      o.drawImage(lo, 0, 0, W * SCALE, H * SCALE);
-      o.drawImage(loOv, 0, 0, W * SCALE, H * SCALE);
+      o.drawImage(lo, 0, 0, ow, oh);
+      if (loOv) o.drawImage(loOv, 0, 0, ow, oh);
     },
   };
 }
 // RGB 级马赛克：块 n，块取左上角颜色（对齐到屏幕中心）
-export function mosaic(u32, n) {
+export function mosaic(u32, n, gw = W, gh = H) {
   if (n <= 1) return; const src = u32.slice();
-  const ox = (W / 2) % n, oy = (H / 2) % n;
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  const ox = (gw / 2) % n, oy = (gh / 2) % n;
+  for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) {
     const bx = Math.max(0, Math.floor((x - ox) / n) * n + ox), by = Math.max(0, Math.floor((y - oy) / n) * n + oy);
-    u32[y * W + x] = src[Math.min(H - 1, by) * W + Math.min(W - 1, bx)];
+    u32[y * gw + x] = src[Math.min(gh - 1, by) * gw + Math.min(gw - 1, bx)];
   }
 }

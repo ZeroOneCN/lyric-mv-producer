@@ -228,17 +228,24 @@ Practical guidance:
   Reserve dissolves for three moments at most.
 - **HUD restraint.** A 1 px border, 8 px margin, two lines of metadata. It must
   never compete with the lyric line or the character's eyes.
-- **One poster frame, three shapes.** Cover variants are crops of the 16:9
-  poster, never independent renders; that keeps the same frame and grade.
-  `make_covers.py` returns to the 320×180 grid, crops, then upscales 8×:
-  - 4:3 keeps 240 of 320 columns → 1920×1440;
-  - 3:4 keeps 135 of 320 columns (42%) → 1080×1440.
+- **One poster, two designed covers.** `poster.jpg` is the 16:9 frame from
+  `POSTER_T`. The 4:3 and 3:4 covers are *not* crops of it — each is its own
+  composition on its own pixel grid, drawn by `engine/cover.js` with the film's
+  `coverMotif()`. The grids reuse the film's cell size so sprites keep their
+  relative scale:
+  - 4:3 is 240×180 → 1920×1440;
+  - 3:4 is 135×180 → 1080×1440.
 
-  `COVER_X` (0 = left, 0.5 = centre, 1 = right) slides the window. At
-  `POSTER_T`, keep the face, the key prop, and any title inside the chosen
-  135-column band. A crop cannot invent pixels: if two characters stand far
-  apart, the 3:4 cover will cut one of them — reframe the coda shot or use a
-  tighter poster moment instead of shipping a bad crop.
+  `engine/cover.js` fixes the layout law for every film: artwork clipped to the
+  upper region, a dithered type band across the bottom that always carries the
+  song title (plus optional artist and tagline), and corner ticks framing the
+  whole. `COVER_TYPE` chooses `band` (art stops above the title) or `overlay`
+  (art bleeds full, the title sits on a plate over it). The artwork is the
+  film's job: `coverMotif(f, art)` in `engine/main.js` redraws the piece's own
+  motif with coordinates relative to `art.w`/`art.h` — never hardcoded to
+  320×180, since each grid is narrower. `make_covers.py` renders each cover
+  twice, finished and `bare=1` (type layer off); identical files mean the title
+  was never drawn, so the build fails rather than shipping a blank cover.
 
 ## 6. Look proof before animation
 

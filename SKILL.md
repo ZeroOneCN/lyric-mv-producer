@@ -33,7 +33,7 @@ starting a new film. This file is the operating summary.
    disclosure and the user's own vocal; never imitate a real performer for
    promotion.
 6. **One source of truth.** `project.env` drives duration, fps, size, song,
-   poster time, cover crop focus, and caption style. `lyrics.json` drives both
+   poster time, cover layout, and caption style. `lyrics.json` drives both
    picture and SRT. `events.json` drives both picture accents and the mix.
 7. **Deterministic output.** Same project → same frames and mix. No
    `Math.random`, no wall-clock time in `render(t)`.
@@ -82,8 +82,8 @@ python "$SKILL/scripts/scaffold.py" ./my-film \
 ```
 
    Omit `--font` for a Latin-only film, `--character` when every figure is an
-   original design. The scaffold copies the engine (including `caption.js`),
-   tools, templates, example lyrics/events, and writes `project.env`.
+   original design. The scaffold copies the engine (including `caption.js` and
+   `cover.js`), tools, templates, example lyrics/events, and writes `project.env`.
 
 2. **Analyze the song** and confirm tempo/sections by ear:
 
@@ -132,7 +132,8 @@ LIB="$LIB" sh build.sh
 ```
 
    The build checks every cue against the fixed caption overlay, then writes the
-   film, the 16:9 poster, and both the 4:3 and 3:4 covers.
+   film, the 16:9 poster, and the designed 4:3 and 3:4 covers (own grids, own
+   composition, song title set in — never crops of the poster).
 
 8. **QA and deliver**:
 
@@ -150,20 +151,20 @@ python tools/check_delivery.py . --slug paper-moon --ffmpeg "/path/to/ffmpeg"
 | 1. Analyze | tempo, duration, energy map, quiet spans, section boundaries | BPM and section map confirmed by ear, not only by script |
 | 2. Lyrics | LRC → `lyrics.json`; drop credits; fix offsets and long lines | every cue t1 > t0, no overlap, last cue before coda, `tools/check_subs.js` prints `RESULT PASS` |
 | 3. Treatment | structure, character, visual rules, sound rules, timeline table | one page that a stranger could shoot from; rights paragraph included |
-| 4. Look | scaffold, palette, sprite (from `char_ref` drafts, redrawn), 5–8 stills, poster crops | silhouette, values, caption legible over the shot, likeness pass; subject survives 4:3 and 3:4 crops |
+| 4. Look | scaffold, palette, sprite (from `char_ref` drafts, redrawn), 5–8 stills | silhouette, values, caption legible over the shot, likeness pass; `coverMotif()` reads on all three grids |
 | 5. Sound | beds, ducks, event map, mix, master | active RMS −20; master −14 LUFS / ≤ −1.2 dBTP |
 | 6. Render | 1080p24, 3 workers, mux AAC | frame count = round(DUR × FPS); no dropped sections |
 | 7. QA | contact sheet, cut strips, full watch, mechanical checks | `RESULT PASS`; zero unintentional black frames |
-| 8. Deliver | mp4, three posters, SRT, treatment, credits, JSON, build | manifest complete incl. 4:3 and 3:4 covers; rights paragraph present |
+| 8. Deliver | mp4, poster + two designed covers, SRT, treatment, credits, JSON, build | manifest complete incl. `cover_4x3.jpg` / `cover_3x4.jpg`; rights paragraph present |
 
 ## Project contract
 
 ```
 my-film/
-├── project.env          # ... POSTER_T COVER_X SUB_STYLE CHAR_REF (cover crop focus 0–1)
+├── project.env          # ... POSTER_T COVER_SHAPES COVER_TYPE COVER_ARTIST SUB_STYLE CHAR_REF
 ├── poster.jpg           # 16:9 cover from POSTER_T
-├── poster_4x3.jpg       # 4:3 cover derived from poster.jpg
-├── poster_3x4.jpg       # 3:4 cover derived from poster.jpg
+├── cover_4x3.jpg        # 4:3 cover, designed on its own 240×180 grid
+├── cover_3x4.jpg        # 3:4 cover, designed on its own 135×180 grid
 ├── lyrics.json          # [{ "text", "t0", "t1" }]
 ├── events.json          # { dur, bpm, beds, ducks, ev }
 ├── TREATMENT.md
@@ -175,7 +176,8 @@ my-film/
 │   ├── font.js          # 5×7 variable-width Latin font
 │   ├── font_zh.js       # generated CJK subset
 │   ├── caption.js       # the fixed lyric caption: one line, plate | bubble | plain
-│   └── main.js          # shots, HUD, character sprites, page contract
+│   ├── cover.js         # the designed cover: own grid, type band, corner ticks
+│   └── main.js          # shots, HUD, character sprites, coverMotif, page contract
 ├── character/           # private: ref_*, drafts, rows, lookbook (gitignored)
 ├── tools/
 │   ├── genfont.py
@@ -288,7 +290,8 @@ Details and failure modes: `references/audio.md`.
    the line still reads over the busiest shot it lands on.
 6. `check_delivery.py` → `RESULT PASS (0 fail, 0 warn)`.
 7. Last frame checked for subtitles and safe margins; all three covers checked
-   at 100%, especially that the 3:4 crop keeps the face and any title.
+   at 100%: each 4:3 / 3:4 cover is its own composition with the song title set
+   into its band — not a crop of the poster with the title missing.
 
 Details: `references/qa.md`.
 
@@ -296,19 +299,25 @@ Details: `references/qa.md`.
 
 - `<slug>.mp4` — 1920×1080, 24 fps, AAC 48 kHz stereo
 - `poster.jpg` — 16:9, from a coda/wide frame without subtitle collision
-- `poster_4x3.jpg` — 4:3 landscape cover, 1920×1440
-- `poster_3x4.jpg` — 3:4 portrait cover, 1080×1440
+- `cover_4x3.jpg` — 4:3 landscape cover, 1920×1440, designed on the 240×180 grid
+- `cover_3x4.jpg` — 3:4 portrait cover, 1080×1440, designed on the 135×180 grid
 - `<slug>.srt` — one entry per burned-in caption, from `out/segments.json`
 - `TREATMENT.md`, `CREDITS`, `lyrics.json`, `events.json`, `project.env`
 - `build.sh` plus `engine/`, `tools/`, `audio/master.wav`
 - `analysis/song.json` when produced
 
-All three covers come from one `POSTER_T` frame. `make_covers.py` reduces the
-poster to the 320×180 grid, crops, then upscales with nearest-neighbour:
-4:3 keeps the centre 240 px of 320, 3:4 keeps 135 px (42%). `COVER_X` in
-`project.env` moves that window (0 = left, 1 = right). Compose the poster shot
-so the subject stays inside the centre band; if it does not, change `POSTER_T`
-or the shot itself, do not ship a crop that cuts the face or an on-screen title.
+Only `poster.jpg` comes from the `POSTER_T` frame. The 4:3 and 3:4 covers are
+separately designed compositions, each drawn on its own pixel grid
+(4:3 = 240×180, 3:4 = 135×180, same cell size as the film so sprites keep their
+relative scale). `engine/cover.js` fixes the layout law — artwork on top, a
+dithered type band across the bottom carrying the song title (plus optional
+artist and tagline), corner ticks framing the whole — and clips the artwork so
+it can never spill into the band. The artwork itself is `coverMotif()` in
+`engine/main.js`: redraw the film's own motif for the cover, positioned relative
+to the art box, never hardcoded to 320×180. `make_covers.py` renders each cover
+twice — finished and `bare=1` (no type layer) — and fails if the two are
+identical, which proves the title was really drawn. `COVER_TYPE` picks `band`
+(art stops above the title) or `overlay` (art bleeds full, title on a plate).
 
 Do not deliver `out/video.mp4` (silent). Do not deliver a project whose
 `CREDITS` lacks the rights section. Do not deliver `character/` — the reference
@@ -350,7 +359,7 @@ and the CREDITS rules.
 | subtitles drift late/early | fix `--offset`, regenerate `lyrics.json` and SRT |
 | audio ends early | ensure `mix.py` pads to `DUR`; check `-shortest` and master length |
 | poster has a lyric across it | set `POSTER_T` in the coda, typically `DUR - 0.3` |
-| 3:4 cover cuts the subject | move `COVER_X`, pick another `POSTER_T`, or reframe the coda shot so the subject sits in the centre 42% |
+| 4:3 / 3:4 cover looks empty or off-balance | redraw `coverMotif()` for that grid — place the subject using `art.w`/`art.h`, not the film's 320×180; the band height is fixed by `engine/cover.js` |
 | loudness passes but TP fails after AAC | lower `alimiter` limit to 0.80 and re-encode |
 
 ## Resources
@@ -362,7 +371,7 @@ and the CREDITS rules.
 | `references/audio.md` | analysis, lyric sync, event map, levels, master, failure modes |
 | `references/qa.md` | QA passes, exact commands, manifest, sign-off |
 | `references/rights.md` | rights gate, CREDITS rules, verbatim paragraph |
-| `assets/engine/` | `px.js`, `font.js`, `caption.js` |
+| `assets/engine/` | `px.js`, `font.js`, `caption.js`, `cover.js` |
 | `assets/templates/` | `main.js`, `index.html`, `project.env`, `build.sh`, `TREATMENT.md`, `CREDITS`, example JSON, `mix.py` |
 | `scripts/scaffold.py` | create a project from the templates |
 | `scripts/setup.sh` | check the toolchain; install Lemo-Opuscar and its packages |
@@ -373,7 +382,7 @@ and the CREDITS rules.
 | `scripts/check_subs.js` | prove every cue fits the fixed single-line caption overlay |
 | `scripts/caption_segments.js` | dump the exact captions the renderer draws (SRT input) |
 | `scripts/make_srt.py` | `out/segments.json` → SRT (one entry per caption) |
-| `scripts/make_covers.py` | `poster.jpg` → 4:3 and 3:4 covers |
+| `scripts/make_covers.py` | render the designed 4:3 / 3:4 covers (own grids, title set in) |
 | `scripts/master_audio.py` | two-pass loudnorm + limiter + verification |
 | `scripts/check_delivery.py` | mechanical delivery gate |
 | `scripts/formant_shift.py` | optional F0-preserving formant shift for a disclosed character timbre |

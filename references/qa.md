@@ -25,21 +25,23 @@ Open them at 100%. Fail the look if any of these is true:
 - the palette has more than ~40 colours or large pure-black areas,
 - the HUD is brighter than the subject.
 
-Then prove the three poster shapes from the chosen `POSTER_T`:
+Then prove the poster and the two designed covers:
 
 ```bash
 node "$LIB/core/render/still.mjs" "$PROJ" "$POSTER_T" --prefix poster_
-python "$PROJ/tools/make_covers.py" "$PROJ" --ffmpeg "$FF" \
-  --focus "${COVER_X:-0.5}" --source "stills/poster_$POSTER_T.jpg"
+python "$PROJ/tools/make_covers.py" "$PROJ" --lib "$LIB" --ffmpeg "$FF" \
+  --shapes "${COVER_SHAPES:-4x3,3x4}"
 ```
 
-Open `poster.jpg`, `poster_4x3.jpg`, and `poster_3x4.jpg` at 100%. Fail the
-poster if any of these is true:
+Open `poster.jpg`, `cover_4x3.jpg`, and `cover_3x4.jpg` at 100%. Fail the pack
+if any of these is true:
 
-- the 3:4 crop cuts a face, an eye, the key prop, or an on-screen title,
-- the crop leaves the subject at the edge with dead space on the other side,
-- a subtitle is baked into any cover,
-- the 4:3 and 3:4 covers do not come from the same frame as `poster.jpg`.
+- the 4:3 or 3:4 cover is a crop of the poster instead of its own composition,
+- a cover's type band has no song title, or the title collides with the art,
+- `coverMotif()` leaves one grid empty or off-balance (it must be laid out
+  against `art.w`/`art.h`, not the film's 320×180),
+- a lyric subtitle is baked into the poster frame,
+- the poster frame is a random moment with a caption across the face.
 
 Fix stills before spending 20 minutes on 4,000 frames.
 
@@ -110,8 +112,8 @@ The script must end with `RESULT PASS (0 fail, 0 warn)`. It checks:
 
 | Check | Threshold |
 |---|---|
-| required files | video ≥ 100 kB; 16:9, 4:3, 3:4 posters ≥ 10 kB; treatment, credits, build, lyrics |
-| covers | 4:3 = 1.333, 3:4 = 0.750 (±0.01), min side 720 px, readable JPEG |
+| required files | video ≥ 100 kB; 16:9 poster + 4:3 + 3:4 covers ≥ 10 kB; treatment, credits, build, lyrics |
+| covers | 4:3 = 1.333, 3:4 = 0.750 (±0.01), min side 720 px, readable JPEG; `out/covers.json` present with `mode: designed` and the title set in |
 | video | h264, 1920×1080, 24 fps, readable duration |
 | audio | AAC, 48 kHz, stereo |
 | loudness | −14 ± 1.0 LUFS, TP ≤ −0.9 dBTP |
@@ -138,7 +140,7 @@ ffprobe -v error -count_frames -select_streams v:0 \
 ffmpeg -y -sseof -0.1 -i "$SLUG.mp4" -frames:v 1 qa/last.jpg
 
 # cover dimensions and aspect
-for f in poster.jpg poster_4x3.jpg poster_3x4.jpg; do
+for f in poster.jpg cover_4x3.jpg cover_3x4.jpg; do
   ffmpeg -hide_banner -i "$f" 2>&1 | grep "Video:"
 done
 ```
@@ -149,8 +151,8 @@ done
 <project>/
 ├── <slug>.mp4          1920×1080, 24 fps, AAC 256k/48k stereo
 ├── poster.jpg          from POSTER_T, 16:9, no subtitle covering the subject
-├── poster_4x3.jpg      4:3 cover, same frame and crop focus
-├── poster_3x4.jpg      3:4 cover, same frame; subject must survive the 42% crop
+├── cover_4x3.jpg       4:3 cover, its own 240×180 composition with the title set in
+├── cover_3x4.jpg       3:4 cover, its own 135×180 composition with the title set in
 ├── <slug>.srt          one entry per burned-in caption, UTF-8, from out/segments.json
 ├── TREATMENT.md        structure, character, look, sound, rights
 ├── CREDITS             music, character, visuals, tools, rights paragraph
@@ -168,8 +170,8 @@ done
 Never deliver the intermediate `out/video.mp4` as the final film — it has no
 audio. Never deliver a poster that is a random frame with a subtitle across the
 face; pick the coda or a wide shot. Never ship only the 16:9 poster, and never
-ship a 3:4 crop that decapitates the subject to satisfy the aspect ratio —
-reframe the poster shot instead.
+fake the 4:3 / 3:4 covers by cropping the poster — they are separate designs
+that must carry the song title in their own type band.
 
 ## 6. Rights gate
 

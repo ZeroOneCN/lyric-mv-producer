@@ -127,8 +127,8 @@ def main() -> None:
     required = {
         video: 100_000,
         poster: 10_000,
-        root / "poster_4x3.jpg": 10_000,
-        root / "poster_3x4.jpg": 10_000,
+        root / "cover_4x3.jpg": 10_000,
+        root / "cover_3x4.jpg": 10_000,
         srt: 50,
         root / "TREATMENT.md": 800,
         root / "CREDITS": 100,
@@ -143,7 +143,48 @@ def main() -> None:
         else:
             report("PASS", f"file {path.relative_to(root)}")
 
-    for name, ratio in (("poster_4x3.jpg", 4 / 3), ("poster_3x4.jpg", 3 / 4)):
+    # Covers are their own compositions with the title set in, so the delivery
+    # check verifies the provenance file make_covers.py wrote, not a crop.
+    covers_file = root / "out" / "covers.json"
+    try:
+        env = dict(re.findall(r'^\s*([A-Z_]+)\s*=\s*"?([^"\n]*)"?', (root / "project.env").read_text(encoding="utf-8"), re.M))
+    except OSError:
+        env = {}
+    title = env.get("TITLE", "").strip()
+    if not covers_file.exists():
+        report("FAIL", "out/covers.json missing: covers were not rendered by tools/make_covers.py; "
+                       "a cover is a designed composition, not a crop of poster.jpg")
+    else:
+        try:
+            cm = json.loads(covers_file.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as e:
+            cm = None
+            report("FAIL", f"out/covers.json is not JSON: {e}")
+        if cm:
+            if cm.get("mode") != "designed":
+                report("FAIL", f"out/covers.json mode is {cm.get('mode')!r}, expected 'designed'")
+            if not title:
+                report("FAIL", "project.env has no TITLE; a cover must carry the song title")
+            for name, want in (("cover_4x3.jpg", (1920, 1440)), ("cover_3x4.jpg", (1080, 1440))):
+                shape = {v.get("file"): k for k, v in cm.get("covers", {}).items()}.get(name)
+                entry = cm.get("covers", {}).get(shape or "", {})
+                if not entry:
+                    report("WARN", f"out/covers.json does not list {name}")
+                    continue
+                if entry.get("title") != title:
+                    report("FAIL", f"{name} was drawn with title {entry.get('title')!r}, "
+                                   f"but project.env says TITLE={title!r}")
+                if tuple(entry.get("pixels", [])) != want:
+                    report("FAIL", f"{name} claims {entry.get('pixels')}, expected {list(want)}")
+                ci = probe(args.ffmpeg, root / name) if (root / name).exists() else {"width": 0, "height": 0}
+                if (ci["width"], ci["height"]) != want:
+                    report("FAIL", f"{name} is {ci['width']}x{ci['height']}, expected {want[0]}x{want[1]}")
+                else:
+                    report("PASS", f"{name} {want[0]}x{want[1]} grid {entry.get('grid')} title set in")
+            if len({tuple(c.get("grid") or []) for c in cm.get("covers", {}).values()}) < 2:
+                report("WARN", "both covers report the same grid: check --shapes")
+
+    for name, ratio in (("poster.jpg", 16 / 9), ("cover_4x3.jpg", 4 / 3), ("cover_3x4.jpg", 3 / 4)):
         path = root / name
         if not path.exists():
             continue

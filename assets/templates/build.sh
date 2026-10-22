@@ -16,7 +16,7 @@ cd "$PROJ"
 : "${WIDTH:?project.env needs WIDTH}"
 : "${HEIGHT:?project.env needs HEIGHT}"
 : "${POSTER_T:?project.env needs POSTER_T}"
-: "${COVER_X:=0.5}"
+: "${COVER_SHAPES:=4x3,3x4}"
 
 PY=${PY:-}
 FF=${FF:-ffmpeg}
@@ -98,10 +98,11 @@ node "$LIB/core/render/still.mjs" "$PROJ" "$POSTER_T" --prefix poster_
 }
 cp "$PROJ/stills/poster_$POSTER_T.jpg" "$PROJ/poster.jpg"
 
-echo "[10/10] 4:3 and 3:4 covers"
-"$PY" "$PROJ/tools/make_covers.py" "$PROJ" --ffmpeg "$FF" --focus "$COVER_X"
+echo "[10/10] designed 4:3 and 3:4 covers (own grids, song title set in)"
+"$PY" "$PROJ/tools/make_covers.py" "$PROJ" --lib "$LIB" --node node --ffmpeg "$FF" \
+  --shapes "${COVER_SHAPES:-4x3,3x4}"
 
 echo
 ls -lh "$PROJ/$SLUG.mp4" "$PROJ/poster.jpg" \
-  "$PROJ/poster_4x3.jpg" "$PROJ/poster_3x4.jpg" "$PROJ/$SLUG.srt"
+  "$PROJ/cover_4x3.jpg" "$PROJ/cover_3x4.jpg" "$PROJ/$SLUG.srt"
 echo "done: $PROJ/$SLUG.mp4"
