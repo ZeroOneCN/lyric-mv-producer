@@ -79,9 +79,9 @@ my-song/
 └── hero.png        可选：角色参考图
 ```
 
-安装好之后，直接说：
+技能装好后，直接说这一句就行——缺什么依赖让 Agent 帮你装：
 
-> 用 lyric-mv-producer 做一支 MV。
+> 用 lyric-mv-producer 做一支 MV，缺什么依赖帮我安装。
 
 如果音频和 LRC 不在当前目录，再补一句路径：
 
@@ -97,47 +97,9 @@ Agent 会读取技能，缺什么只问一次（音频和 LRC、片名、语气�
 
 字幕样式不用提：全片固定一套（内容画面上的置顶层、一条一行、中文单行最多 32 字、抖动小托板），要换观感只说 `SUB_STYLE=bubble` 或 `plain` 就行。
 
-这不是一键应用。`setup.sh` 会装好 Lemo-Opuscar 和它的依赖，但 Node、ffmpeg、Python 和浏览器仍需系统里已有；一部长片在普通笔记本上渲染要几十分钟。这些都齐了之后，上面那句话就是全部接口；下面的命令是 Agent 实际执行的内容，留在这里方便查看或手动重跑。
+这不是一键应用。Agent 会跑 `setup.sh` 装好 Lemo-Opuscar 渲染库和它的 npm/Chromium/Python 依赖；Node、ffmpeg、Python 这些系统工具它也能试着装，但可能仍要你允许或手动补上。一部长片在普通笔记本上渲染要几十分钟。上面那句话就是全部接口。
 
-## 手动流程
-
-```bash
-SKILL="$HOME/.qoder-cn/skills/lyric-mv-producer"
-LIB="$HOME/lemo-opuscar"
-
-# 1. 建项目骨架（有角色参考图就带 --character）
-python "$SKILL/scripts/scaffold.py" ./my-film \
-  --title "PAPER MOON" --slug paper-moon \
-  --dur 180.0 --song "/path/to/song.mp3" \
-  --font "/path/to/unifont.hex.gz" \
-  --character "/path/to/hero.png" --sub-style plate
-
-# 2. 分析速度与段落，然后靠耳朵确认
-python "$SKILL/scripts/analyze_song.py" "/path/to/song.mp3" \
-  --ffmpeg ffmpeg --json my-film/analysis/song.json
-
-# 3. LRC 对时，生成 cue 表
-python "$SKILL/scripts/lrc_to_lyrics.py" lyrics.lrc \
-  -o my-film/lyrics.json --offset 0 --min-dur 1.2 --max-dur 8
-
-# 4. 参考图 → 像素小人草稿（sheet.png + rows_*.txt）
-cd my-film
-python tools/char_ref.py character/ref_hero.png --project .
-
-# 5. 字幕置顶层校验：一条只显示一行，几何超界直接失败
-node tools/check_subs.js .
-
-# 6. 写 Treatment，再用静帧验证画面
-node "$LIB/core/render/still.mjs" . 1.2 10.5 43.0 87.5 178.0 --prefix look_
-
-# 7. 构建并检查（build.sh 会先生成 out/segments.json，SRT 与烧录字幕同源）
-LIB="$LIB" sh build.sh
-python tools/check_delivery.py . --slug paper-moon --ffmpeg ffmpeg
-```
-
-步骤 5 已并入 `build.sh`，手动执行只是为了提前发现问题；校验不过，构建会在渲染前停下。步骤 4 只在拿到参考图时跑一次，产出的行稿要粘进 `engine/main.js` 再由人重画成原创精灵。`character/` 里的参考图和草稿是工作素材，不随交付发出。
-
-`check_delivery.py` 必须输出 `RESULT PASS`，而且仍然要完整看一遍成片。静帧、接触表（contact sheet）、切点切片、同步和声音检查的步骤见 `references/qa.md`。
+跑完 Agent 会用 `check_delivery.py` 卡一道 `RESULT PASS`，但成片仍要完整看一遍；静帧、接触表（contact sheet）、切点切片、同步和声音检查的具体步骤见 `references/qa.md`。
 
 ## 项目结构
 

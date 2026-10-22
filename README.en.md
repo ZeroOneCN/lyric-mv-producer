@@ -104,11 +104,12 @@ my-song/
 └── hero.png        optional character reference
 ```
 
-Install it, then say:
+Once the skill is installed, this one sentence is all it takes — ask the agent to
+install whatever it needs:
 
-> 用 lyric-mv-producer 做一支 MV。
+> 用 lyric-mv-producer 做一支 MV，缺什么依赖帮我安装。
 
-> Make a lyric MV with lyric-mv-producer.
+> Make a lyric MV with lyric-mv-producer; install whatever dependencies are missing.
 
 If the audio and LRC are not in the current folder, add the path:
 
@@ -138,57 +139,16 @@ film — a single line drawn on the overlay layer above the picture, up to 32 CJ
 characters, on a dithered plate that hugs the text. To change the feel, say
 `SUB_STYLE=bubble` or `plain`.
 
-It is not a one-click app. `setup.sh` installs Lemo-Opuscar and its packages,
-but Node, Python, ffmpeg, and a browser must already be on the machine, and a
-full-length film takes tens of minutes to render on a typical laptop. Once those
-are in place, that sentence is the whole interface; the commands below are what
-the agent runs, kept here for inspection or a manual rerun.
+It is not a one-click app. The agent runs `setup.sh` to install the Lemo-Opuscar
+renderer and its npm/Chromium/Python packages; it can also try to install system
+tools like Node, ffmpeg, and Python, but you may still need to approve or supply
+those. A full-length film takes tens of minutes to render on a typical laptop.
+That sentence is the whole interface.
 
-## Quick start (manual)
-
-```bash
-SKILL="$HOME/.qoder-cn/skills/lyric-mv-producer"
-LIB="$HOME/lemo-opuscar"
-
-# 1. Scaffold a project (pass --character when you have a reference image)
-python "$SKILL/scripts/scaffold.py" ./my-film \
-  --title "PAPER MOON" --slug paper-moon \
-  --dur 180.0 --song "/path/to/song.mp3" \
-  --font "/path/to/unifont.hex.gz" \
-  --character "/path/to/hero.png" --sub-style plate
-
-# 2. Analyze tempo and sections, then confirm by ear
-python "$SKILL/scripts/analyze_song.py" "/path/to/song.mp3" \
-  --ffmpeg ffmpeg --json my-film/analysis/song.json
-
-# 3. Sync LRC to the cue table
-python "$SKILL/scripts/lrc_to_lyrics.py" lyrics.lrc \
-  -o my-film/lyrics.json --offset 0 --min-dur 1.2 --max-dur 8
-
-# 4. Reference image -> sprite drafts (sheet.png + rows_*.txt)
-cd my-film
-python tools/char_ref.py character/ref_hero.png --project .
-
-# 5. Caption overlay check: one line per caption, out-of-geometry cues fail
-node tools/check_subs.js .
-
-# 6. Write the treatment, then prove the look with stills
-node "$LIB/core/render/still.mjs" . 1.2 10.5 43.0 87.5 178.0 --prefix look_
-
-# 7. Build and check (build.sh emits out/segments.json first, so the SRT and the
-#    burned-in captions come from the same single-line segments)
-LIB="$LIB" sh build.sh
-python tools/check_delivery.py . --slug paper-moon --ffmpeg ffmpeg
-```
-
-Step 5 also runs inside `build.sh`; running it by hand just surfaces problems
-before the render. Step 4 is done once, when the reference arrives — you paste
-one rows file into `engine/main.js` and redraw it into an original sprite.
-`character/` holds private working material and is never part of the delivery.
-
-`check_delivery.py` must print `RESULT PASS`, and you should still watch the
-film end to end. Stills, contact sheet, cut strips, sync and sound checks are
-described in `references/qa.md`.
+When it finishes, the agent gates delivery with `check_delivery.py` until it
+prints `RESULT PASS`, but you should still watch the film end to end. Stills,
+contact sheet, cut strips, sync and sound checks are described in
+`references/qa.md`.
 
 ## Project layout
 
