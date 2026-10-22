@@ -22,9 +22,9 @@ Every film is a code-drawn pixel lyric film, not a slideshow over the song:
 - Three shot scales: wide (figure 16–40 px tall), medium (60–90 px), close (100–150 px, kept for choruses and the ending).
 - Characters are original pixel sprites; fan characters are redrawn rather than ripped. No image generators, stock art, or logos.
 - You may supply one character reference image. The script quantises it into 12×16 / 16×24 / 24×32 / 32×48 drafts in the film's palette, plus pasteable ASCII rows, to settle silhouette, colours and head-to-body ratio. The reference and the drafts stay in the project's `character/`; the delivered sprite is still redrawn in code.
-- The lyric caption is one fixed house style, not a per-film design decision: bottom caption lane (rows 142–176 of the 320×180 grid), 286 px maximum, two lines, 10 CJK characters per line, 1 px outline, set on a Bayer-dithered ink bar (`bubble` and `plain` are the only switches). Faces and key props must stay above the lane.
+- The lyric caption is one fixed house style, not a per-film design decision: an **overlay layer** drawn on top of the content picture (640×360, twice the 320×180 grid). The picture keeps the whole frame; nothing is carved out for captions. One cue shows **one line**, up to 560 layer px wide and 32 CJK characters, 16 layer px tall — 48 px at 1080p. A sung line too long for one caption is split into successive single-line captions, timed by character count with a 0.9 s floor. The backing is a small Bayer-dithered ink plate sized to the text and centred with it (`bubble` and `plain` are the only switches); it never spans the frame and never reserves dead space in the composition. The layer shares the picture's colour lookup table, so fades and palette collapse act on the caption too, while RGB `post()` effects such as mosaic stay underneath it.
 - Cuts land on beats or lyric onsets; dissolves are rationed; the HUD stays quiet.
-- Each film gets its own treatment, palette, character, and structure; the engine is a canvas, not a fixed preset — the caption lane is the one hard-coded rule.
+- Each film gets its own treatment, palette, character, and structure; the engine is a canvas, not a fixed preset — the caption overlay is the one hard-coded rule.
 
 ## What you get
 
@@ -32,7 +32,7 @@ Every film is a code-drawn pixel lyric film, not a slideshow over the song:
 - `poster.jpg` — 16:9 still from the coda
 - `poster_4x3.jpg` — 1920×1440 landscape cover
 - `poster_3x4.jpg` — 1080×1440 portrait cover
-- `song.srt` — generated from the same cue table as the picture
+- `song.srt` — generated from the same caption segments the film burns in
 - `TREATMENT.md`, `CREDITS`, `lyrics.json`, `events.json`, `project.env`
 - `build.sh` — one command from decode to finished film
 
@@ -128,8 +128,9 @@ Add specifics to the same sentence when they matter:
 > the subject centred so the 3:4 cover crops cleanly.
 
 You never have to ask for a caption style: one house style is fixed for every
-film (bottom lane, two lines maximum, 10 CJK characters a line, outline over a
-dithered bar). To change the feel, say `SUB_STYLE=bubble` or `plain`.
+film — a single line drawn on the overlay layer above the picture, up to 32 CJK
+characters, on a dithered plate that hugs the text. To change the feel, say
+`SUB_STYLE=bubble` or `plain`.
 
 It is not a one-click app. `setup.sh` installs Lemo-Opuscar and its packages,
 but Node, Python, ffmpeg, and a browser must already be on the machine, and a
@@ -148,7 +149,7 @@ python "$SKILL/scripts/scaffold.py" ./my-film \
   --title "PAPER MOON" --slug paper-moon \
   --dur 180.0 --song "/path/to/song.mp3" \
   --font "/path/to/unifont.hex.gz" \
-  --character "/path/to/hero.png" --sub-style bar
+  --character "/path/to/hero.png" --sub-style plate
 
 # 2. Analyze tempo and sections, then confirm by ear
 python "$SKILL/scripts/analyze_song.py" "/path/to/song.mp3" \
@@ -162,13 +163,14 @@ python "$SKILL/scripts/lrc_to_lyrics.py" lyrics.lrc \
 cd my-film
 python tools/char_ref.py character/ref_hero.png --project .
 
-# 5. Caption lane check: the geometry is fixed, long cues just fail
+# 5. Caption overlay check: one line per caption, out-of-geometry cues fail
 node tools/check_subs.js .
 
 # 6. Write the treatment, then prove the look with stills
 node "$LIB/core/render/still.mjs" . 1.2 10.5 43.0 87.5 178.0 --prefix look_
 
-# 7. Build and check
+# 7. Build and check (build.sh emits out/segments.json first, so the SRT and the
+#    burned-in captions come from the same single-line segments)
 LIB="$LIB" sh build.sh
 python tools/check_delivery.py . --slug paper-moon --ffmpeg ffmpeg
 ```
@@ -195,8 +197,8 @@ my-film/
 ├── index.html
 ├── engine/              # px.js, font.js, caption.js, font_zh.js, main.js
 ├── character/           # reference + pixel drafts (working material, not shipped)
-├── tools/               # genfont, mix, master_audio, make_srt, make_covers,
-│                        # char_ref, check_subs, check_delivery
+├── tools/               # genfont, mix, master_audio, caption_segments, make_srt,
+│                        # make_covers, char_ref, check_subs, check_delivery
 ├── audio/               # song.wav, mix.wav, master.wav
 ├── analysis/
 ├── stills/

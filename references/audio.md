@@ -63,13 +63,15 @@ After conversion, listen against the waveform and nudge individual `t0`/`t1` in
 - A cue starts on the first syllable, not before the breath.
 - No cue overlaps the next.
 - Do not leave a cue on screen through an instrumental break.
-- 12–20 characters per Chinese line; split longer sentences into cues.
+- 8–20 characters per Chinese cue: the caption shows one line at a time, so split
+  longer sentences into cues at a breath.
 - The last cue must end before `DUR`; leave at least 2 s of coda.
 
-Generate SRT from the same JSON, never by hand:
+Generate the SRT from the captions the renderer draws, never by hand:
 
 ```bash
-python tools/make_srt.py . --out "$SLUG.srt"
+node tools/caption_segments.js . --out out/segments.json
+python tools/make_srt.py . --segments out/segments.json --out "$SLUG.srt"
 ```
 
 ## 3. Event map

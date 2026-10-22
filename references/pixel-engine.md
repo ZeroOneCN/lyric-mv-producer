@@ -118,10 +118,12 @@ zhOutlined(...)
 ```
 
 The template imports `font_zh.js` dynamically and only switches to the CJK path
-when `ZH_N > 0`, so a Latin-only film never pays for it. Chinese glyphs are
-16 px; at scale 1 that is 96 px tall on a 1080p screen. Consequences:
+when `ZH_N > 0`, so a Latin-only film never pays for it. Chinese glyphs are a
+16×16 cell: 96 px tall on a 1080p screen when drawn in the picture (titles, HUD),
+and 48 px when drawn on the 2× caption overlay layer. Consequences:
 
-- One subtitle line: 10 characters maximum; cap at **2 lines** per cue.
+- One caption = one line, up to 32 CJK characters (560 layer px); a longer sung
+  line becomes successive captions, not a second line.
 - Do not mix Latin and CJK inside one line; pick one renderer per cue.
 
 If a glyph is missing the build must fail, not silently print boxes. Run
@@ -130,34 +132,45 @@ If a glyph is missing the build must fail, not silently print boxes. Run
 ## 4b. The fixed caption (`engine/caption.js`)
 
 Every film draws lyrics through one component, so the subtitle presentation is a
-house style rather than a per-project invention. The geometry is not
+house style rather than a per-project invention. It is a **layer on top of the
+picture**, never a strip the shot has to make room for. The geometry is not
 configurable and lives in `engine/px.js`:
 
 | | |
 |---|---|
-| Lane | rows `LANE_TOP=142` … `LANE_BOT=176`, full width — the bottom safe area |
-| Width | `CAP_MAXW=286` px (17 px of margin each side) |
-| Lines | `CAP_LINES=2` maximum; a cue that needs a third line is a bad cue |
-| CJK | `CAP_CJK=10` characters per line, punctuation pulled up off the line head |
-| Type | 1 px ink outline; `C.bwhite` once settled, `C.silver` during the fade-in |
+| Layer | `OV=2` → a 640×360 buffer above the 320×180 picture, composited last |
+| Size | CJK glyph 16 layer px = 8 picture px = 48 output px at 1080p; Latin drawn at 2× to match |
+| Lines | `CAP_LINES=1` — one line per caption; a longer sung line becomes successive captions |
+| Width | `CAP_MAXW=560` layer px (40 px of margin each side) |
+| CJK | `CAP_CJK=32` characters per line, punctuation pulled up off the line head |
+| Anchor | centred, text top at `CAP_BASE=336` (picture row 168) |
+| Timing | split lines share the cue by character count; each keeps `CAP_MINSEG=0.9` s |
+| Type | 1 px ink shadow; `C.bwhite` once settled, `C.silver`/`C.steel` during the fade-in |
 | Motion | `SUB_FADE` (0.18 s default) fade-in only; no lift, no typewriter |
 
 ```js
-const cfg = captionCfg(env, ZH);          // from project.env + font_zh.js
-drawCaption(fb, t, SUBS, cfg);            // bar | bubble | plain
-captionLines(cue, cfg);                   // null = does not fit the lane
+const ov = new FB(OW, OH);                  // the caption layer, cleared every frame
+const cfg = captionCfg(env, ZH);            // from project.env + font_zh.js
+ov.clear(T);
+drawCaption(ov, t, SUBS, cfg);              // plate | bubble | plain
+out.present(fb, LUT.full);
+out.presentOverlay(ov, LUT.full);           // same LUT: fades carry the caption too
+out.show();
+segmentsOf(cue, cfg);                       // null = cannot be shown one line at a time
 ```
 
-`SUB_STYLE` is the only look choice: `bar` (a Bayer-dithered `C.ink` lane across
-the frame, density `SUB_DENS`), `bubble` (a per-line plate, no full-width band),
-or `plain` (text only — the lane still belongs to the caption). `tools/check_subs.js`
-validates every cue against the same module the renderer imports, and `build.sh`
-runs it before rendering, so a too-long line fails the build instead of arriving
-on screen.
+`SUB_STYLE` is the only look choice: `plate` (a Bayer-dithered `C.ink` plate the
+size of the line, density `SUB_DENS`), `bubble` (a solid rounded plate), or
+`plain` (text and shadow only). `tools/check_subs.js` validates every cue against
+the same module the renderer imports, and `build.sh` runs it before rendering, so
+a line that cannot be read in one pass fails the build instead of arriving on
+screen. `tools/caption_segments.js` then dumps that exact caption list, which is
+what `make_srt.py` turns into the SRT.
 
-Because the lane is reserved, a shot must not put a face, a hand or the key prop
-below row 142 while a cue is on screen. `main.js` exports `hasCaption(t)` for
-that test; `drawChar()` clamps a sprite's feet to the lane top by default.
+Because the caption is an overlay, the shot keeps its full frame: no reserved
+band, no sprite clamping. Treat the bottom ~12 picture rows as a soft guide —
+keep a face or the key prop out of that band while a cue is on screen, or move
+the cue, rather than fighting the plate for attention.
 
 ## 4c. Character from a reference image
 
@@ -237,7 +250,7 @@ node "$LIB/core/render/still.mjs" "$PROJ" 1.2 10.5 43.0 87.5 178.0 --prefix look
 ```
 
 Check, in this order: silhouette readability, value separation, subtitle
-legibility inside the lane, palette harmony, character likeness. Fix the stills
+legibility where the overlay lands, palette harmony, character likeness. Fix the stills
 before rendering 4,000 frames. A look that only works in motion is usually hiding
 a weak composition.
 
@@ -256,12 +269,12 @@ a weak composition.
 
 | File | Role |
 |---|---|
-| `engine/px.js` | framebuffer, palette, LUTs, dither, sprites, output, lane geometry |
+| `engine/px.js` | framebuffer, palette, LUTs, dither, sprites, output, caption overlay geometry |
 | `engine/font.js` | original Latin bitmap font |
 | `engine/font_zh.js` | generated CJK subset (never hand-edit) |
-| `engine/caption.js` | the fixed lyric caption: lane, wrap, bar/bubble/plain |
+| `engine/caption.js` | the fixed lyric caption: one line on the overlay, plate/bubble/plain |
 | `engine/main.js` | shots, HUD, character sprites, page contract |
 | `index.html` | 1920×1080 canvas, module entry |
 | `tools/genfont.py` | scans text, bakes subset, `--check` |
-| `tools/check_subs.js` | proves every cue fits the fixed lane (same module as the render) |
+| `tools/check_subs.js` | proves every cue fits the fixed single-line overlay (same module as the render) |
 | `tools/char_ref.py` | reference image → palette-quantised sprite drafts + ASCII rows |

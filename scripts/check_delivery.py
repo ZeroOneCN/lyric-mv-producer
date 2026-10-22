@@ -220,6 +220,24 @@ def main() -> None:
                 longest = max(len(t) for _, _, t in cues)
                 if longest > 48:
                     report("WARN", f"longest SRT line is {longest} characters; check readability")
+                seg_path = root / "out" / "segments.json"
+                if seg_path.exists():
+                    try:
+                        caps = json.loads(seg_path.read_text(encoding="utf-8"))["captions"]
+                        drift = [k for k, (cap, (_, _, t)) in enumerate(zip(caps, cues))
+                                 if str(cap["text"]).strip() != t.strip()]
+                        if len(caps) != len(cues):
+                            report("FAIL", f"SRT has {len(cues)} cues but the caption layer shows "
+                                 f"{len(caps)} - regenerate the SRT from out/segments.json")
+                        elif drift:
+                            report("FAIL", f"SRT caption {drift[0] + 1} is not the burned-in caption")
+                        else:
+                            report("PASS", "SRT matches the burned-in single-line captions")
+                    except (json.JSONDecodeError, KeyError) as e:
+                        report("FAIL", f"out/segments.json is not caption_segments.js output: {e}")
+                else:
+                    report("WARN", "out/segments.json missing: the SRT was not checked against "
+                                   "the captions the renderer draws")
 
     lyrics_path = root / "lyrics.json"
     if lyrics_path.exists():
@@ -243,21 +261,21 @@ def main() -> None:
 
     caption = root / "engine" / "caption.js"
     if not caption.exists():
-        report("FAIL", "engine/caption.js missing: the film must use the fixed caption lane")
+        report("FAIL", "engine/caption.js missing: the film must use the fixed caption overlay")
     else:
         report("PASS", "file engine/caption.js")
         checker = root / "tools" / "check_subs.js"
         if not checker.exists():
-            report("WARN", "tools/check_subs.js missing: the caption lane was not re-checked")
+            report("WARN", "tools/check_subs.js missing: the caption overlay was not re-checked")
         else:
             p = run([args.node, str(checker), str(root)])
             lines = (p.stdout + p.stderr).strip().splitlines()
             if p.returncode == 0:
-                report("PASS", "caption lane: " + (lines[-1] if lines else "ok"))
+                report("PASS", "caption overlay: " + (lines[-1] if lines else "ok"))
             else:
                 for ln in lines:
                     if ln.startswith("FAIL"):
-                        report("FAIL", f"caption lane:{ln[4:]}")
+                        report("FAIL", f"caption overlay:{ln[4:]}")
 
     events_path = root / "events.json"
     if events_path.exists():

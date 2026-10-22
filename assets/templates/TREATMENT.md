@@ -42,10 +42,13 @@ Choose one and say why. The choice must survive the 30-second instrumental secti
 
 **HUD**: [what the interface says, where it sits, how often it appears]. The HUD is a point of view, not a border.
 
-**Lyrics — fixed, not designed per film**: `engine/caption.js` draws every cue in the
-reserved lane y 142-176, max 286 px wide, max 2 lines, 10 CJK characters per line,
-1 px ink outline, 0.18 s fade-in. `SUB_STYLE` picks bar (dithered lane) | bubble | plain.
-[Record here only the style you chose and any shot that must keep the lane clear.]
+**Lyrics — fixed, not designed per film**: `engine/caption.js` draws one line per cue on
+the 2x overlay layer above the picture (640x360 layer, line max 560 layer px, centred,
+anchored at layer row 336), 1 px ink shadow, 0.18 s fade-in. A cue longer than one line is
+split into successive single lines, timed by character count. `SUB_STYLE` picks plate
+(dithered plate behind the line) | bubble (solid plate) | plain (outline only).
+[Record here only the style you chose and any shot whose subject must stay clear of the
+overlay band while a cue is on screen.]
 
 **Transitions**: cuts on beats or lyric starts. [Name the two or three dissolves and why they are earned.]
 

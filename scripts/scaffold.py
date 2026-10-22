@@ -24,6 +24,7 @@ TOOLS = {
     "master_audio.py": SCRIPTS / "master_audio.py",
     "check_delivery.py": SCRIPTS / "check_delivery.py",
     "check_subs.js": SCRIPTS / "check_subs.js",
+    "caption_segments.js": SCRIPTS / "caption_segments.js",
     "char_ref.py": SCRIPTS / "char_ref.py",
 }
 
@@ -71,8 +72,8 @@ def main() -> None:
     ap.add_argument("--font", default=None, help="GNU Unifont .hex.gz to copy into fonts/")
     ap.add_argument("--character", default=None,
                     help="character reference image to keep in character/ (private)")
-    ap.add_argument("--sub-style", default="bar", choices=("bar", "bubble", "plain"),
-                    help="fixed lyric caption style (default: bar)")
+    ap.add_argument("--sub-style", default="plate", choices=("plate", "bubble", "plain"),
+                    help="fixed lyric caption style (default: plate)")
     ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
 

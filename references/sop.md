@@ -25,9 +25,9 @@ Ask **once**, in one message. Skip anything the request already answers.
   seeds the sprite draft in `character/` and never appears on screen. If no, the
   character is an original design and `character/` stays empty.
 - Caption look: do not ask. The lyric caption is the fixed component
-  (`engine/caption.js`: lane 142-176, 286 px, 2 lines, 10 CJK chars per line);
-  `SUB_STYLE` defaults to `bar` and is changed only if the user asks for a
-  different look by name.
+  (`engine/caption.js`: a 2x overlay layer above the picture, one line, 560 layer
+  px, 32 CJK chars); `SUB_STYLE` defaults to `plate` and is changed only if the
+  user asks for a different look by name.
 - Language for lyrics and on-screen text.
 - Whether they want to review a storyboard first (default: no).
 - Missing tools: Node 20+, Python 3.11+ with numpy/scipy, ffmpeg, a
@@ -100,9 +100,10 @@ timestamps for a sung line.
 Rules (these are the fixed caption's rules - `check_subs.js` enforces them):
 
 - `t1 > t0`; no overlap; keep a 20-40 ms gap between lines.
-- One cue per sung line, max 2 lines on screen, max 10 Chinese characters per
-  line (20 per cue), max 286 px wide. Split a long line at a breath; never widen
-  or move the lane to fit a bad cue.
+- One cue per sung line. The caption shows one line at a time, so a cue longer
+  than 32 Chinese characters (560 layer px) is split into successive captions,
+  each on screen at least 0.9 s. Split it at a breath in `lyrics.json` instead
+  when the sung line itself has two phrases; never change the caption geometry.
 - Do not put a cue in an instrumental section. The absence of lyrics is part of
   the edit.
 - Repeated choruses are repeated cues; keep them, do not merge them.
@@ -110,12 +111,14 @@ Rules (these are the fixed caption's rules - `check_subs.js` enforces them):
   timing, no lift.
 
 ```sh
-"$PY" "$SKILL/scripts/make_srt.py" "$PROJ" --out "$PROJ/paper-moon.srt"
 node "$SKILL/scripts/check_subs.js" "$PROJ"     # must print RESULT PASS
+node "$SKILL/scripts/caption_segments.js" "$PROJ" --out "$PROJ/out/segments.json"
+"$PY" "$SKILL/scripts/make_srt.py" "$PROJ" --segments "$PROJ/out/segments.json" \
+  --out "$PROJ/paper-moon.srt"
 ```
 
-**Gate:** `lyrics.json` parses, every cue is inside `DUR`, the SRT has the same
-count as the JSON, and `check_subs.js` prints `RESULT PASS`.
+**Gate:** `lyrics.json` parses, every cue is inside `DUR`, `check_subs.js` prints
+`RESULT PASS`, and the SRT has exactly the captions listed in `out/segments.json`.
 
 ## 3. Treatment before code
 
@@ -165,8 +168,8 @@ Check:
 - The character reads at 40 px; eyes and silhouette survive the 6x upscale.
 - The palette has a light, a mid, and a dark that are distinct in a 320 px
   thumbnail. Pure black is a hole, not a shadow.
-- The caption sits inside the lane (rows 142-176), stays under 2 lines, and the
-  subject of the shot is not below row 142 while the cue is on screen.
+- The caption is one line, sits on the overlay above the shot, and stays readable
+  where it lands; the subject is not parked in the bottom quarter while a cue is on.
 - The HUD is a point of view, not a border. If it would appear on every frame,
   cut it back.
 - The title card is readable in one second.
@@ -330,8 +333,8 @@ and licences, and that they are responsible for the material they supplied.
 |---|---|---|
 | Film feels like a slideshow | cuts not on the felt pulse; no camera motion | cut on beats or lyric starts; add a slow push or pan |
 | Instrumental section is boring | no story device; literal illustration | use the treatment's frame (memory, game, letter) to change the location |
-| Lyrics cover the face | subject left inside the reserved lane | keep faces and key props above row 142 while a cue is on screen |
-| Cue rejected by `check_subs.js` | lyric needs 3 lines or >10 CJK chars per line | split the cue at a breath in `lyrics.json`; the lane is fixed |
+| Lyrics cover the face | the shot keeps its subject in the bottom quarter where the overlay lands | recompose that shot upward, or cut the cue earlier |
+| Cue rejected by `check_subs.js` | the sung line needs more than one caption, or more time than one caption can hold | split the cue at a breath in `lyrics.json`; the caption geometry is fixed |
 | Draft sprite is mud | too many palette entries, no value separation | lower `--colours`, then redraw by hand: outline first, three values |
 | Tofu / missing characters | `font_zh.js` not regenerated | run `genfont.py`; check the missing list |
 | Render crawls | drawing per pixel through Canvas 2D; huge per-frame allocations | draw into the indexed FB; precompute; use 3 workers |

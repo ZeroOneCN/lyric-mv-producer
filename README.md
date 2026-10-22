@@ -15,9 +15,9 @@
 - 三档景别：远景（人物 16–40 px 高）、中景（60–90 px）、近景（100–150 px，只留给副歌和结尾）。
 - 角色都是原创像素精灵；同人角色重新绘制，不直接取用官方精灵图。不使用图像生成器、素材库或 Logo。
 - 你可以给一张角色参考图。脚本把它量化成本片调色板下的 12×16 / 16×24 / 24×32 / 32×48 像素草稿和可直接粘贴的行稿，用来定剪影、配色与头身比；参考图和草稿只留在项目的 `character/`，片中的精灵仍是代码重画的原创像素。
-- 歌词字幕是全片固定的一套样式，不再每部片重新设计：底部字幕栏（320×180 的第 142–176 行）、最宽 286 px、最多两行、中文每行 10 字、1 px 描边，默认压在一条 Bayer 抖动的深色栏上（可切 `bubble` / `plain`）。构图必须把脸和关键道具留在字幕栏以上。
+- 歌词字幕是全片固定的一套样式，不再每部片重新设计：它是压在内容画面之上的**置顶层**（640×360，画面的 2 倍率），整幅画面都可用，不为字幕切出空带。一条只显示**一行**，单行最宽 560 层像素、中文上限 32 字，字高 16 层像素，放大到 1080p 后是 48 px。唱句太长时按字数比例切成先后出现的单行字幕，每段至少 0.9 秒。底衬默认是一块 Bayer 抖动、贴着文字宽度的深色小圆角托板，与文字一起居中（可切 `bubble` / `plain`），不铺满整行。置顶层和画面共用同一张调色板查找表，淡入淡出、色板塌缩会同时作用在字幕上；马赛克一类的 RGB 后期效果只作用于画面层，字幕保持可读。
 - 剪辑落在拍点或歌词起点；叠化克制使用；HUD 保持安静。
-- 每部片单独写 Treatment、定调色板、角色和结构；引擎是画布，不是固定预设——字幕栏是唯一写死的规则。
+- 每部片单独写 Treatment、定调色板、角色和结构；引擎是画布，不是固定预设——字幕置顶层是唯一写死的规则。
 
 ## 你会得到什么
 
@@ -25,7 +25,7 @@
 - `poster.jpg` — 取自尾奏的 16:9 海报
 - `poster_4x3.jpg` — 1920×1440 横版封面
 - `poster_3x4.jpg` — 1080×1440 竖版封面
-- `song.srt` — 与画面共用同一份 cue 表
+- `song.srt` — 由字幕置顶层实际烧录的单行分段生成，和画面逐条一致
 - `TREATMENT.md`、`CREDITS`、`lyrics.json`、`events.json`、`project.env`
 - `build.sh` — 一条命令，从解码做到成片
 
@@ -95,7 +95,7 @@ Agent 会读取技能，缺什么只问一次（音频和 LRC、片名、语气�
 
 > 用 lyric-mv-producer 把 ./my-song 做成像素风 MV，片名《纸月亮》，主角照 ./my-song/hero.png 画，主色蓝金，副歌要一次大远景；封面人物放中间，方便裁 3:4。
 
-字幕样式不用提：全片固定一套（底部字幕栏、最多两行、中文每行 10 字、描边加抖动底栏），要换观感只说 `SUB_STYLE=bubble` 或 `plain` 就行。
+字幕样式不用提：全片固定一套（内容画面上的置顶层、一条一行、中文单行最多 32 字、抖动小托板），要换观感只说 `SUB_STYLE=bubble` 或 `plain` 就行。
 
 这不是一键应用。`setup.sh` 会装好 Lemo-Opuscar 和它的依赖，但 Node、ffmpeg、Python 和浏览器仍需系统里已有；一部长片在普通笔记本上渲染要几十分钟。这些都齐了之后，上面那句话就是全部接口；下面的命令是 Agent 实际执行的内容，留在这里方便查看或手动重跑。
 
@@ -110,7 +110,7 @@ python "$SKILL/scripts/scaffold.py" ./my-film \
   --title "PAPER MOON" --slug paper-moon \
   --dur 180.0 --song "/path/to/song.mp3" \
   --font "/path/to/unifont.hex.gz" \
-  --character "/path/to/hero.png" --sub-style bar
+  --character "/path/to/hero.png" --sub-style plate
 
 # 2. 分析速度与段落，然后靠耳朵确认
 python "$SKILL/scripts/analyze_song.py" "/path/to/song.mp3" \
@@ -124,13 +124,13 @@ python "$SKILL/scripts/lrc_to_lyrics.py" lyrics.lrc \
 cd my-film
 python tools/char_ref.py character/ref_hero.png --project .
 
-# 5. 字幕栏校验：几何固定，超长的 cue 会直接失败
+# 5. 字幕置顶层校验：一条只显示一行，几何超界直接失败
 node tools/check_subs.js .
 
 # 6. 写 Treatment，再用静帧验证画面
 node "$LIB/core/render/still.mjs" . 1.2 10.5 43.0 87.5 178.0 --prefix look_
 
-# 7. 构建并检查
+# 7. 构建并检查（build.sh 会先生成 out/segments.json，SRT 与烧录字幕同源）
 LIB="$LIB" sh build.sh
 python tools/check_delivery.py . --slug paper-moon --ffmpeg ffmpeg
 ```
@@ -152,8 +152,8 @@ my-film/
 ├── index.html
 ├── engine/              # px.js, font.js, caption.js, font_zh.js, main.js
 ├── character/           # 参考图与像素草稿（工作素材，不交付）
-├── tools/               # genfont, mix, master_audio, make_srt, make_covers,
-│                        # char_ref, check_subs, check_delivery
+├── tools/               # genfont, mix, master_audio, caption_segments, make_srt,
+│                        # make_covers, char_ref, check_subs, check_delivery
 ├── audio/               # song.wav, mix.wav, master.wav
 ├── analysis/
 ├── stills/

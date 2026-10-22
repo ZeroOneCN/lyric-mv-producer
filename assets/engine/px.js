@@ -3,12 +3,16 @@
 export const W = 320, H = 180, SCALE = 6;
 export const T = 255;                      // 透明
 
-// —— 字幕栏（固定几何，全片唯一一套）——
-// 镜头的 bottom safe area = LANE_TOP..LANE_BOT；主体与脸不得放在这里。
-export const LANE_TOP = 142, LANE_BOT = 176;   // 含首尾，共 35 行
-export const CAP_MAXW = 286;                    // 文字可用宽（两侧各 17 px）
-export const CAP_LINES = 2;                     // 最多两行，超出即校验失败
-export const CAP_CJK = 10;                      // 中日韩每行字数上限（宽度远宽于此）
+// —— 字幕置顶层（固定几何，全片唯一一套）——
+// 字幕画在 2 倍分辨率的置顶层上，压在整幅画面之上：画面不再为字幕留底部空带。
+// 一个汉字 16 层像素 = 8 画面像素 = 1080p 下 48 px；拉丁按 2 倍画，视觉同高。
+export const OV = 2;                              // 置顶层相对画面的倍率
+export const OW = W * OV, OH = H * OV;            // 640×360
+export const CAP_MAXW = 560;                      // 一行文字可用宽（层像素，两侧各 40）
+export const CAP_LINES = 1;                       // 一行一条，长了按时间切成先后两段
+export const CAP_CJK = 32;                        // 单行汉字上限
+export const CAP_BASE = 336;                      // 单行字幕的文字顶边（层像素，画面第 168 行）
+export const CAP_MINSEG = 0.9;                    // 切段后每段最短可读时长（秒）
 
 // —— 主调色板：ENDESGA-32（0–31）+ 保护色（32+，褪色表不动它们）——
 const HEX = [
@@ -152,20 +156,32 @@ export function sprFromRows(rows, map) {       // 字符串精灵 → {w,h,d}
 }
 
 // —— 输出：索引 → RGB（可选两张表 + 逐像素选择：回涨 / 塌缩的抖动过渡）→ ×6 最近邻 ——
+// 字幕置顶层是第二张 2 倍低分辨画布：先画完画面与后处理，再整层压在画面上。
 export function makeOut(canvas) {
   const lo = document.createElement('canvas'); lo.width = W; lo.height = H;
   const g = lo.getContext('2d'); const img = g.createImageData(W, H); const u32 = new Uint32Array(img.data.buffer);
+  const loOv = document.createElement('canvas'); loOv.width = OW; loOv.height = OH;
+  const gv = loOv.getContext('2d'); const imgOv = gv.createImageData(OW, OH); const u32Ov = new Uint32Array(imgOv.data.buffer);
   const o = canvas.getContext('2d'); o.imageSmoothingEnabled = false;
   return {
-    lo, u32,
+    lo, u32, loOv, u32Ov,
     present(fb, lut, lutB = null, pick = null) {
       const d = fb.d;
       if (!lutB) for (let i = 0; i < d.length; i++) u32[i] = lut[d[i]];
       else for (let y = 0, i = 0; y < H; y++) for (let x = 0; x < W; x++, i++) u32[i] = (pick(x, y) ? lutB : lut)[d[i]];
       g.putImageData(img, 0, 0);
     },
+    // 透明像素（索引 T）写 0，其余走画面同一张 LUT：淡出与塌缩会一并作用到字幕上。
+    presentOverlay(ov, lut) {
+      const d = ov.d;
+      for (let i = 0; i < d.length; i++) u32Ov[i] = d[i] === T ? 0 : lut[d[i]];
+      gv.putImageData(imgOv, 0, 0);
+    },
     post(fn) { fn(u32); g.putImageData(img, 0, 0); },   // RGB 级后处理（马赛克、旋涡）
-    show() { o.drawImage(lo, 0, 0, W * SCALE, H * SCALE); },
+    show() {
+      o.drawImage(lo, 0, 0, W * SCALE, H * SCALE);
+      o.drawImage(loOv, 0, 0, W * SCALE, H * SCALE);
+    },
   };
 }
 // RGB 级马赛克：块 n，块取左上角颜色（对齐到屏幕中心）

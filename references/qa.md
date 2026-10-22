@@ -18,8 +18,8 @@ Open them at 100%. Fail the look if any of these is true:
 - the character reads as a silhouette blob, or the species/character is not
   recognisable without the treatment text,
 - two adjacent planes share the same value (no separation at 6× upscale),
-- anything that matters - a face, an eye, the key prop - sits inside the caption
-  lane (rows 142-176) while a cue is on screen,
+- anything that matters - a face, an eye, the key prop - sits in the bottom
+  quarter of the frame where the caption overlay lands, while a cue is on screen,
 - `node tools/check_subs.js "$PROJ"` does not print `RESULT PASS`,
 - CJK glyphs are missing, doubled, or clipped,
 - the palette has more than ~40 colours or large pure-black areas,
@@ -118,7 +118,7 @@ The script must end with `RESULT PASS (0 fail, 0 warn)`. It checks:
 | black | no segment ≥ 0.5 s; 0.2–0.5 s warns |
 | SRT | cues valid, monotonic, no overlaps, ends before picture |
 | lyrics | every cue has text, t1 > t0 |
-| caption | `engine/caption.js` present; `tools/check_subs.js` prints `RESULT PASS` |
+| caption | `engine/caption.js` present; `tools/check_subs.js` prints `RESULT PASS`; SRT equals `out/segments.json` |
 | CJK | `font_zh.js` present when lyrics contain CJK |
 | events | valid JSON, duration within 1 s of film |
 | credits | names the music and contains a rights/licence section |
@@ -151,7 +151,7 @@ done
 ├── poster.jpg          from POSTER_T, 16:9, no subtitle covering the subject
 ├── poster_4x3.jpg      4:3 cover, same frame and crop focus
 ├── poster_3x4.jpg      3:4 cover, same frame; subject must survive the 42% crop
-├── <slug>.srt          one cue per sung line, UTF-8, same timings as lyrics.json
+├── <slug>.srt          one entry per burned-in caption, UTF-8, from out/segments.json
 ├── TREATMENT.md        structure, character, look, sound, rights
 ├── CREDITS             music, character, visuals, tools, rights paragraph
 ├── lyrics.json         [{ text, t0, t1 }]
@@ -159,7 +159,7 @@ done
 ├── build.sh            one command rebuild
 ├── project.env         single source of truth
 ├── engine/             px.js, font.js, font_zh.js, main.js
-├── tools/              genfont, mix, master_audio, make_srt, check_delivery
+├── tools/              genfont, mix, master_audio, caption_segments, make_srt, check_delivery
 ├── audio/              song.wav, mix.wav, master.wav
 ├── analysis/           song.json (optional)
 └── stills/             look_*.jpg, poster_*.jpg

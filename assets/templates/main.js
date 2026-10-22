@@ -1,16 +1,17 @@
 // main.js — deterministic page for a code-drawn lyric MV.
 // Renderer contract: window.DUR / window.render(t) / window.READY / window.SUBS / window.EV.
-import { W, H, FB, C, LUT, makeOut, bayer, hash, clamp, ss, sprFromRows, LANE_TOP, LANE_BOT } from './px.js';
+import { W, H, FB, C, LUT, makeOut, bayer, hash, clamp, ss, sprFromRows, OW, OH, T } from './px.js';
 import { text, textW, textOutlined } from './font.js';
-import { captionCfg, drawCaption } from './caption.js';
+import { captionCfg, drawCaption, unsegmentable, OVERFLOW } from './caption.js';
 
 const canvas = document.getElementById('c');
-const fb = new FB();
+const fb = new FB();                 // 画面 320×180
+const ov = new FB(OW, OH);           // 字幕置顶层 640×360，最后压在画面上
 const out = makeOut(canvas);
 
 let CFG = {
   SLUG: 'my-lyric-mv', TITLE: 'MY LYRIC MV', SUBTITLE: 'A CODE-DRAWN LYRIC FILM',
-  DUR: 24, POSTER_T: 20, SUB_STYLE: 'bar', SUB_DENS: '0.45', SUB_FADE: '0.18',
+  DUR: 24, POSTER_T: 20, SUB_STYLE: 'plate', SUB_DENS: '0.45', SUB_FADE: '0.18',
 };
 let SUBS = [], EV = [], ZH = null, CAP = null;
 
@@ -92,7 +93,13 @@ function nightScene(t) {
 
   drawSkyline(FAR, C.dslate, C.slate, C.steel, C.steel, t, .22);
   drawSkyline(NEAR, C.ink, C.dslate, C.amber, C.warm, t, .52);
-  fb.rect(0, 150, W, 30, C.ink);
+  // 街面一直铺到画面底边：字幕是压在画面上的置顶层，画面本身不留底部空带
+  fb.rect(0, 150, W, H - 150, C.night);
+  fb.hline(0, W, 150, C.deepD);
+  for (let i = 0; i < 22; i++) {
+    const x = Math.floor(hash(i, 61) * W), y = 154 + Math.floor(hash(i, 62) * 22);
+    fb.hline(x, x + 3 + Math.floor(hash(i, 63) * 9), y, hash(i, 64) > .6 ? C.warm : C.slate);
+  }
 
   // window frame
   fb.rect(0, 0, 15, 180, C.umber);
@@ -155,16 +162,11 @@ function hud(t) {
   if (bayer(20, 18) < .5) fb.rect(20, 18, 3, 3, C.amber);
 }
 
-function lineAt(t) {
-  for (const cue of SUBS) if (t >= cue.t0 && t < cue.t1) return cue;
-  return null;
-}
-
 function lyric(t) {
-  const r = drawCaption(fb, t, SUBS, CAP);
-  if (r && r.overflow) {
-    throw new Error(`caption overflow at ${r.cue.t0.toFixed(2)}s: ${r.cue.text} `
-      + '- shorten the cue in lyrics.json; the lane geometry is fixed');
+  const r = drawCaption(ov, t, SUBS, CAP);
+  if (r === OVERFLOW) {
+    throw new Error(`caption overflow near ${t.toFixed(2)}s: this lyric line cannot be read `
+      + 'as one caption — split the cue in lyrics.json; the caption geometry is fixed');
   }
 }
 
@@ -191,15 +193,12 @@ export const CHAR = {
 const SPR = Object.fromEntries(
   Object.entries(CHAR.poses).map(([k, rows]) => [k, sprFromRows(rows, CHAR.map)]));
 
-function hasCaption(t) { return lineAt(t) !== null; }
-
-// 字幕栏（LANE_TOP..LANE_BOT）是保留区：有字幕的镜头里，精灵脚底不得低于 LANE_TOP。
+// 字幕是压在画面上的置顶层，画面不留底部空带：构图按整幅来排，
+// 只是别让脸和关键道具长期停在置顶层覆盖的那几行里。
 function drawChar(t, x, groundY, { pose = 'stand', face = 1, scale = 1 } = {}) {
   const spr = SPR[pose];
   if (!spr) return;
-  let top = groundY - spr.h * scale;
-  if (hasCaption(t) && groundY > LANE_TOP) groundY = LANE_TOP;
-  if (hasCaption(t) && top + spr.h * scale > LANE_TOP) top = LANE_TOP - spr.h * scale;
+  const top = groundY - spr.h * scale;
   fb.blitScale(spr, Math.round(x - (spr.w * scale) / 2), Math.round(top), scale, face < 0);
 }
 
@@ -218,6 +217,7 @@ function titleScene(t) {
 }
 
 function renderAt(t) {
+  ov.clear(T);                    // 置顶层每帧清空，字幕只画在当前帧上
   if (t < 4) {
     titleScene(t);
     titleCard(t);
@@ -227,6 +227,7 @@ function renderAt(t) {
     lyric(t);
   }
   out.present(fb, LUT.full);
+  out.presentOverlay(ov, LUT.full);
   out.show();
 }
 
@@ -249,12 +250,17 @@ async function boot() {
     if (m.ZH_N > 0) ZH = m;
   } catch (e) { /* Latin-only film */ }
   CAP = captionCfg(CFG, ZH);
+  const bad = unsegmentable(SUBS, CAP);
+  if (bad.length) {
+    throw new Error(`caption cannot fit one line at ${bad[0].t0}s: ${bad[0].text} `
+      + '- split the cue in lyrics.json; run tools/check_subs.js');
+  }
   window.DUR = CFG.DUR;
   window.SUBS = SUBS.map(c => ({ t0: c.t0, t1: c.t1, text: c.text }));
   window.EV = EV;
   window.EXTRA = {
     slug: CFG.SLUG, title: CFG.TITLE, posterT: CFG.POSTER_T,
-    subStyle: CAP.style, lane: [LANE_TOP, LANE_BOT],
+    subStyle: CAP.style, captionLayer: [OW, OH],
   };
   window.render = t => {
     try { renderAt(clamp(t, 0, CFG.DUR - .001)); }

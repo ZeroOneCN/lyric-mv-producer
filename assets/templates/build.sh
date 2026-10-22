@@ -74,11 +74,12 @@ echo "[3/10] mix song, beds and foley"
 echo "[4/10] master to -14 LUFS / -1.2 dBTP"
 "$PY" "$PROJ/tools/master_audio.py" "$PROJ/audio/mix.wav" "$PROJ/audio/master.wav" --ffmpeg "$FF"
 
-echo "[5/10] subtitles"
-"$PY" "$PROJ/tools/make_srt.py" "$PROJ" --out "$PROJ/$SLUG.srt"
-
-echo "[6/10] caption lane check"
+echo "[5/10] caption check (one line, overlay layer)"
 node "$PROJ/tools/check_subs.js" "$PROJ"
+
+echo "[6/10] subtitles from the same caption segments"
+node "$PROJ/tools/caption_segments.js" "$PROJ" --out "$PROJ/out/segments.json"
+"$PY" "$PROJ/tools/make_srt.py" "$PROJ" --segments "$PROJ/out/segments.json" --out "$PROJ/$SLUG.srt"
 
 echo "[7/10] render $DUR s at $FPS fps"
 node "$LIB/core/render/video.mjs" "$PROJ" --fps "$FPS" --workers "$WORKERS" \

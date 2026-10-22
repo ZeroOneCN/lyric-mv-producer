@@ -27,8 +27,8 @@ starting a new film. This file is the operating summary.
    reference and its drafts never appear in the film and are disclosed in
    `CREDITS`.
 4. **One house style.** The lyric caption is the fixed component in
-   `engine/caption.js` (lane, width, line and character caps). Change the shot
-   composition, never the caption geometry, to make room for it.
+   `engine/caption.js` (2× overlay layer above the picture, one line, width and
+   character caps). Change the shot composition, never the caption geometry.
 5. **No voice cloning.** A parametric timbre experiment is allowed only with
    disclosure and the user's own vocal; never imitate a real performer for
    promotion.
@@ -78,7 +78,7 @@ python "$SKILL/scripts/scaffold.py" ./my-film \
   --title "PAPER MOON" --slug paper-moon \
   --dur 180.0 --song "/path/to/song.mp3" \
   --font "/path/to/unifont.hex.gz" \
-  --character "/path/to/hero-reference.png" --sub-style bar
+  --character "/path/to/hero-reference.png" --sub-style plate
 ```
 
    Omit `--font` for a Latin-only film, `--character` when every figure is an
@@ -131,7 +131,7 @@ node "$LIB/core/render/still.mjs" . 1.2 10.5 43.0 87.5 178.0 --prefix look_
 LIB="$LIB" sh build.sh
 ```
 
-   The build checks every cue against the fixed caption lane, then writes the
+   The build checks every cue against the fixed caption overlay, then writes the
    film, the 16:9 poster, and both the 4:3 and 3:4 covers.
 
 8. **QA and deliver**:
@@ -150,7 +150,7 @@ python tools/check_delivery.py . --slug paper-moon --ffmpeg "/path/to/ffmpeg"
 | 1. Analyze | tempo, duration, energy map, quiet spans, section boundaries | BPM and section map confirmed by ear, not only by script |
 | 2. Lyrics | LRC → `lyrics.json`; drop credits; fix offsets and long lines | every cue t1 > t0, no overlap, last cue before coda, `tools/check_subs.js` prints `RESULT PASS` |
 | 3. Treatment | structure, character, visual rules, sound rules, timeline table | one page that a stranger could shoot from; rights paragraph included |
-| 4. Look | scaffold, palette, sprite (from `char_ref` drafts, redrawn), 5–8 stills, poster crops | silhouette, values, caption inside the lane, likeness pass; subject survives 4:3 and 3:4 crops |
+| 4. Look | scaffold, palette, sprite (from `char_ref` drafts, redrawn), 5–8 stills, poster crops | silhouette, values, caption legible over the shot, likeness pass; subject survives 4:3 and 3:4 crops |
 | 5. Sound | beds, ducks, event map, mix, master | active RMS −20; master −14 LUFS / ≤ −1.2 dBTP |
 | 6. Render | 1080p24, 3 workers, mux AAC | frame count = round(DUR × FPS); no dropped sections |
 | 7. QA | contact sheet, cut strips, full watch, mechanical checks | `RESULT PASS`; zero unintentional black frames |
@@ -171,16 +171,17 @@ my-film/
 ├── build.sh
 ├── index.html           # 1920×1080 canvas
 ├── engine/
-│   ├── px.js            # 320×180 framebuffer, palette, LUTs, lane geometry
+│   ├── px.js            # 320×180 framebuffer, palette, LUTs, 2× caption overlay
 │   ├── font.js          # 5×7 variable-width Latin font
 │   ├── font_zh.js       # generated CJK subset
-│   ├── caption.js       # the fixed lyric caption (bar | bubble | plain)
+│   ├── caption.js       # the fixed lyric caption: one line, plate | bubble | plain
 │   └── main.js          # shots, HUD, character sprites, page contract
 ├── character/           # private: ref_*, drafts, rows, lookbook (gitignored)
 ├── tools/
 │   ├── genfont.py
 │   ├── char_ref.py
 │   ├── check_subs.js
+│   ├── caption_segments.js   # the exact caption list the renderer shows
 │   ├── mix.py
 │   ├── master_audio.py
 │   ├── make_srt.py
@@ -202,32 +203,43 @@ window.render   // render(t): deterministic, synchronous
 window.READY    // true after assets load
 ```
 
-`render(t)` must be pure and stateless. All drawing happens on a 320×180
+`render(t)` must be pure and stateless. The picture is drawn on a 320×180
 palette-index framebuffer; `out.present()` maps indices through a LUT and
-`out.show()` scales 6× with smoothing disabled.
+`out.show()` scales 6× with smoothing disabled. The lyric caption lives on its
+own 640×360 overlay buffer (`out.presentOverlay()`), composited above the
+picture at 3× so it reads as a layer on the shot, not a band under it.
 
 ## Lyrics and the fixed caption
 
 The caption is a component, not a per-film design decision. `engine/caption.js`
 draws every cue through the same geometry, declared once in `engine/px.js`:
 
-- Lane `y 142–176`, full width; text max 286 px, max 2 lines, 10 CJK characters
-  per line, punctuation pulled off the line head.
-- 1 px ink outline; `SUB_STYLE` = `bar` (dithered lane, default) | `bubble` | `plain`.
+- It is an **overlay layer above the picture**, not a strip bolted under it: the
+  film draws on the full 320×180 frame and the caption is composited last, so the
+  shot never has to give up its bottom rows.
+- The layer runs at 2× the picture (`640×360`), so a CJK glyph is 16 layer px =
+  8 picture px = 48 output px at 1080p. Latin draws at 2× to match that height.
+- **One line per caption**, centred, anchored at layer row 336. A sung line too
+  long for one caption is split into successive single-line captions, timed by
+  character count (each at least `CAP_MINSEG` = 0.9 s).
+- Line width max 560 layer px, 32 CJK characters; punctuation is pulled off the
+  line head. 1 px ink shadow behind the glyphs; `SUB_STYLE` = `plate` (a
+  Bayer-dithered plate behind the line, default) | `bubble` (solid plate) | `plain`.
 - Fade-in only (`SUB_FADE`, default 0.18 s). No lift, no typewriter, no per-shot restyling.
-- The lane is reserved: while a cue is on screen, no face, hand or key prop below
-  row 142. `main.js` gives `hasCaption(t)` and `drawChar()` clamps to the lane.
-- One cue per sung line. If a cue needs a third line, split the lyric in
-  `lyrics.json`; never widen or move the lane.
+- The overlay maps through the same LUT as the picture, so fades and palette
+  collapse carry the caption with the shot; RGB post-effects (mosaic) stay under it.
+- Composition: keep faces, hands and key props out of the bottom ~12 rows while a
+  cue is on screen — as a guideline, not a reserved band.
 - Latin uses `font.js`; CJK uses the baked Unifont subset. Never mix the two
   renderers in one cue.
 - `build.sh` runs `tools/check_subs.js` before rendering; it imports the same
-  module, so a cue that fails the check cannot reach the picture.
+  module, so a cue that cannot be shown as one line cannot reach the picture.
 
-Generate SRT from `lyrics.json`, never independently:
+SRT comes from the captions the renderer actually draws, never from a second idea:
 
 ```bash
-python tools/make_srt.py . --out paper-moon.srt
+node tools/caption_segments.js . --out out/segments.json   # the exact caption list
+python tools/make_srt.py . --segments out/segments.json --out paper-moon.srt
 node tools/check_subs.js .
 ```
 
@@ -271,8 +283,9 @@ Details and failure modes: `references/audio.md`.
 2. Contact sheet every 10 s; scan for black/frozen/repeated frames.
 3. 2 s strips around every major cut; no one-frame flashes or text pops.
 4. One full watch with sound; one pass checking sync and readability.
-5. Caption lane: `node tools/check_subs.js .` prints `RESULT PASS`, and no shot
-   puts a face, hand or key prop under row 142 while a cue is on screen.
+5. Caption overlay: `node tools/check_subs.js .` prints `RESULT PASS`, the SRT was
+   generated from `out/segments.json` (so it matches the burned-in captions), and
+   the line still reads over the busiest shot it lands on.
 6. `check_delivery.py` → `RESULT PASS (0 fail, 0 warn)`.
 7. Last frame checked for subtitles and safe margins; all three covers checked
    at 100%, especially that the 3:4 crop keeps the face and any title.
@@ -285,7 +298,7 @@ Details: `references/qa.md`.
 - `poster.jpg` — 16:9, from a coda/wide frame without subtitle collision
 - `poster_4x3.jpg` — 4:3 landscape cover, 1920×1440
 - `poster_3x4.jpg` — 3:4 portrait cover, 1080×1440
-- `<slug>.srt` — same timings as `lyrics.json`
+- `<slug>.srt` — one entry per burned-in caption, from `out/segments.json`
 - `TREATMENT.md`, `CREDITS`, `lyrics.json`, `events.json`, `project.env`
 - `build.sh` plus `engine/`, `tools/`, `audio/master.wav`
 - `analysis/song.json` when produced
@@ -328,8 +341,9 @@ and the CREDITS rules.
 | renderer says ffmpeg not found | pass an absolute `FF=`; `build.sh` converts Windows paths to POSIX before prepending to PATH |
 | stills show fonts as boxes | rerun `tools/genfont.py .`, then `genfont.py . --check` |
 | renderer 404s on `/@film/engine/font_zh.js` | the scaffold writes a stub there; rerun `scaffold.py --force` or `tools/genfont.py .` |
-| `check_subs.js` FAIL: does not fit the lane | split or shorten the cue in `lyrics.json`; the lane is fixed by design |
-| caption sits on the subject | move the subject above row 142 for that shot, or cut the cue earlier |
+| `check_subs.js` FAIL: cannot be shown as one line | split the cue in `lyrics.json` (or give it more time); the caption geometry is fixed by design |
+| caption hard to read over the shot | raise `SUB_DENS` (or pick `bubble`), or reframe that shot so the line lands on a quiet area |
+| SRT and burned-in captions disagree | regenerate both from one run: `caption_segments.js` then `make_srt.py --segments` |
 | `char_ref.py: could not read the palette` | the project's `engine/px.js` was replaced; keep `const HEX = [...]` |
 | `char_ref.py` says it needs pillow | run it with the renderer venv: `$LIB/.venv/bin/python` |
 | render fails on `fetch` | serve through the Lemo renderer; ES modules cannot load over `file://` |
@@ -356,8 +370,9 @@ and the CREDITS rules.
 | `scripts/lrc_to_lyrics.py` | LRC → `lyrics.json` |
 | `scripts/genfont.py` | bake/check the CJK subset |
 | `scripts/char_ref.py` | character reference image → palette-quantised sprite drafts + ASCII rows |
-| `scripts/check_subs.js` | prove every cue fits the fixed caption lane |
-| `scripts/make_srt.py` | `lyrics.json` → SRT |
+| `scripts/check_subs.js` | prove every cue fits the fixed single-line caption overlay |
+| `scripts/caption_segments.js` | dump the exact captions the renderer draws (SRT input) |
+| `scripts/make_srt.py` | `out/segments.json` → SRT (one entry per caption) |
 | `scripts/make_covers.py` | `poster.jpg` → 4:3 and 3:4 covers |
 | `scripts/master_audio.py` | two-pass loudnorm + limiter + verification |
 | `scripts/check_delivery.py` | mechanical delivery gate |
